@@ -7,14 +7,18 @@ st.title("📝 Network Data Input")
 # 1. Load defaults safely using our new module
 initialize_session_state()
 
-# 2. Render the interactive tables
+# 2. Render the interactive tables side-by-side
 col1, col2 = st.columns(2)
+
 with col1:
     st.subheader("Nodes")
-    edited_nodes = st.data_editor(st.session_state['nodes_df'], num_rows="dynamic")
+    # ADDED: Unique keys to guarantee stable widget identity across reruns
+    edited_nodes = st.data_editor(st.session_state['nodes_df'], num_rows="dynamic", key="nodes_editor")
+
 with col2:
     st.subheader("Lines")
-    edited_lines = st.data_editor(st.session_state['lines_df'], num_rows="dynamic")
+    # ADDED: Unique keys to guarantee stable widget identity across reruns
+    edited_lines = st.data_editor(st.session_state['lines_df'], num_rows="dynamic", key="lines_editor")
 
 # 3. Validate and Save
 if st.button("Save Configuration"):

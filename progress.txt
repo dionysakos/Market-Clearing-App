@@ -1,0 +1,11 @@
+market_clearing_app/
+├── streamlit_app.py         (Ready - Multipages entry point)
+├── pages/
+│   ├── 1_Data_Input.py      (Ready - Streamlit UI)
+│   └── 2_Results.py         (Ready - Calls PTDF calculation & Optimizer)
+├── utils/
+│   ├── __init__.py          (Ready - Package exposure)
+│   ├── engine.py            (Ready - PuLP DC-OPF Optimizer)
+│   ├── visualization.py     (Ready - Agraph Physics Network)
+│   ├── data_loader.py       (Ready - Session State & Validation)
+│   └── network_tools.py     (Ready - PTDF Matrix NumPy Calculator)
