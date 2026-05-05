@@ -13,14 +13,14 @@ if 'nodes_df' not in st.session_state or 'lines_df' not in st.session_state:
 nodes_df = st.session_state['nodes_df']
 lines_df = st.session_state['lines_df']
 
-# --- TEMPORARY PTDF MOCK ---
-ptdf_data = {
-    'node1': [1/3, 1/3, 2/3],   
-    'node2': [-1/3, 2/3, 1/3], 
-    'node3': [0.0, 0.0, 0.0]  # Hub node 
-}
-ptdf_df = pd.DataFrame(ptdf_data, index=['L_12', 'L_23', 'L_13'])
-# ---------------------------
+from utils.network_tools import calculate_ptdf
+
+# Dynamically calculate PTDF based on the user's grid topology
+try:
+    ptdf_df = calculate_ptdf(nodes_df, lines_df)
+except Exception as e:
+    st.error(f"Error calculating PTDF matrix. Please check your network topology and Reactances. Details: {e}")
+    st.stop()
 
 if st.button("🚀 Execute Market Clearing", type="primary"):
     with st.spinner("Running market clearing optimization..."):

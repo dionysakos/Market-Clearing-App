@@ -1,31 +1,26 @@
 import streamlit as st
-import pandas as pd
-from utils.engine import run_market_clearing
-from utils.visualization import draw_network_graph
+from utils.data_loader import initialize_session_state
 
-st.set_page_config(layout="wide", page_title="LMP Market Dashboard")
-st.title("⚡ Nodal Pricing Market Clearing Engine")
+st.set_page_config(
+    page_title="LMP Market Clearing Engine", 
+    page_icon="⚡", 
+    layout="wide"
+)
+initialize_session_state()
 
+st.title("⚡ Nodal Pricing & Market Clearing Engine")
+st.markdown("""
+Welcome to the **DC-OPF Market Clearing Simulator**. This application calculates the optimal economic dispatch and Locational Marginal Prices (LMPs) for a transmission network.
 
-if st.button("Run Market Clearing"):
-    with st.spinner("Solving DC-OPF..."):
-        # Backend 
-        status, cost, gen, flow, lmps, congestion = run_market_clearing(
-            nodes_df, lines_df, ptdf_df
-        )
-        
-    if status == "Optimal":
-        st.success(f"Optimal -> Total Cost / Welfare: {cost:,.2f} €")
-        
-        #Frontend
-        draw_network_graph(nodes_df, lines_df, flow, lmps, congestion)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("LMP Results by Node")
-            st.dataframe(pd.DataFrame(list(lmps.items()), columns=["Node", "LMP (€/MWh)"]))
-        with col2:
-            st.write("Power Flow Results")
-            st.dataframe(pd.DataFrame(list(flow.items()), columns=["Line", "Flow (MW)"]))
-    else:
-        st.error(f"The problem is {status}. Please check the input data and try again.")
+### How to use this tool:
+1. 👈 **Go to `Data Input`** (in the sidebar) to define your grid topology. You can add nodes, set load bids, generation costs, and define transmission line reactances ($X$) and thermal limits.
+2. 👈 **Go to `Results`** to execute the optimization. The engine will:
+    * Automatically calculate the **PTDF Matrix** based on your line reactances.
+    * Run a **Linear Program (PuLP)** to maximize social welfare.
+    * Extract **LMPs** and **Congestion Costs** from the constraint shadow prices.
+    * Generate an interactive, physics-based network graph.
+
+*This mathematical model is based on standard Independent System Operator (ISO) DC-OPF formulations using Power Transfer Distribution Factors (PTDFs).*
+""")
+
+st.info("💡 **Tip:** Use the sidebar on the left to navigate to the Data Input page and start building your network!")
