@@ -4,6 +4,64 @@ from utils.network_tools import calculate_ptdf
 from utils.engine import run_market_clearing  
 from utils.visualization import draw_network_graph
 
+st.markdown(
+    """
+    <style>
+        .kpi-card {
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 8px;
+            padding: 0.85rem 0.9rem;
+            background: rgba(255, 255, 255, 0.03);
+            min-height: 112px;
+        }
+        .kpi-label {
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            margin-bottom: 0.28rem;
+        }
+        .kpi-value {
+            font-size: 1.24rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .kpi-delta {
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+        .kpi-positive {
+            color: #22c55e;
+        }
+        .kpi-negative {
+            color: #ef4444;
+        }
+        .kpi-neutral {
+            color: #e2e8f0;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+def _kpi_card(label, value, tone="neutral", delta_text=None):
+    tone_class = {
+        "positive": "kpi-positive",
+        "negative": "kpi-negative",
+        "neutral": "kpi-neutral",
+    }.get(tone, "kpi-neutral")
+    delta_block = f"<div class='kpi-delta {tone_class}'>{delta_text}</div>" if delta_text else ""
+    st.markdown(
+        f"""
+        <div class="kpi-card">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value {tone_class}">{value}</div>
+            {delta_block}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 st.title("Market Analytics")
 st.caption("Solve the market clearing problem and inspect system-wide and nodal pricing outputs.")
 
@@ -14,6 +72,9 @@ if 'nodes_df' not in st.session_state or 'lines_df' not in st.session_state:
 
 nodes_df = st.session_state['nodes_df']
 lines_df = st.session_state['lines_df']
+if nodes_df.empty or lines_df.empty:
+    st.warning("No configured network found. Please define nodes and transmission lines in Network Configuration.")
+    st.stop()
 hub_node = st.session_state.get("hub_node", nodes_df["Node"].iloc[-1])
 
 # Dynamically calculate PTDF based on the user's grid topology
@@ -23,33 +84,41 @@ except Exception as e:
     st.error(f"Error calculating PTDF matrix. Please check your network topology and Reactances. Details: {e}")
     st.stop()
 
-if st.button("🚀 Execute Market Clearing", type="primary"):
+network_signature = (
+    tuple(tuple(row) for row in nodes_df[["Node", "Demand", "Pmax", "Cost"]].itertuples(index=False, name=None)),
+    tuple(tuple(row) for row in lines_df[["Line", "From", "To", "Thermal_Limit", "Reactance"]].itertuples(index=False, name=None)),
+    int(hub_node),
+)
+if st.session_state.get("market_signature") != network_signature:
+    st.session_state.pop("market_result", None)
+    st.session_state["market_signature"] = network_signature
+
+if st.button("Execute Market Clearing", type="primary"):
     with st.spinner("Running market clearing optimization..."):
-        
-        status, cost, gen, flows, lmps, congestion, system_lambda = run_market_clearing(
+        result = run_market_clearing(
             nodes_df, lines_df, ptdf_df
         )
-        
-    if status == "Optimal":
-        st.success("The problem was solved optimally!")
-        
-        total_gen = sum(gen.values())
-        total_demand = nodes_df['Demand'].sum() 
-        
-        summary_metrics = [
-            ("Optimization Status", status),
-            ("System λ (SMP)", f"€ {system_lambda:,.2f}/MWh"),
-            ("Total Generation Cost", f"€ {cost:,.2f}"),
-            ("Total Generation", f"{total_gen:,.1f} MW"),
-            ("Total Demand", f"{total_demand:,.1f} MW"),
-        ]
+    st.session_state["market_result"] = result
 
+if "market_result" in st.session_state:
+    status, cost, gen, flows, lmps, congestion, system_lambda = st.session_state["market_result"]
+    if status == "Optimal" and all(value is not None for value in [cost, gen, flows, lmps, congestion, system_lambda]):
+        st.success("The problem was solved optimally!")
+
+        congested_lines = sum(
+            abs(float(flows.get(int(row["Line"]), 0.0))) >= 0.999 * float(row["Thermal_Limit"])
+            for _, row in lines_df.iterrows()
+        )
         st.subheader("Executive Metrics")
-        for start in range(0, len(summary_metrics), 4):
-            metric_cols = st.columns(min(4, len(summary_metrics) - start))
-            for column, metric in zip(metric_cols, summary_metrics[start:start + 4]):
-                with column:
-                    st.metric(metric[0], metric[1])
+        summary_columns = st.columns(4)
+        with summary_columns[0]:
+            _kpi_card("Optimization Status", status, tone="positive", delta_text="Solver reached optimum")
+        with summary_columns[1]:
+            _kpi_card("System λ (SMP)", f"€ {system_lambda:,.2f}/MWh", tone="neutral")
+        with summary_columns[2]:
+            _kpi_card("Total Generation Cost", f"€ {cost:,.2f}", tone="negative")
+        with summary_columns[3]:
+            _kpi_card("Congested Lines", f"{congested_lines}", tone="negative", delta_text="At thermal limit")
         
         st.divider()
         
@@ -59,11 +128,14 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
             node_columns = st.columns(min(4, len(nodes_df) - start))
             for column, (_, row) in zip(node_columns, nodes_df.iloc[start:start + 4].iterrows()):
                 node_id = int(row["Node"])
+                node_lmp = float(lmps.get(node_id, 0.0))
+                node_tone = "positive" if node_lmp <= float(nodes_df["Cost"].median()) else "negative"
                 with column:
-                    st.metric(
+                    _kpi_card(
                         f"Node {node_id}",
-                        f"€ {lmps.get(node_id, 0):,.2f}/MWh",
-                        help=f"Generation: {gen.get(node_id, 0):,.1f} MW\nDemand: {row['Demand']:.1f} MW",
+                        f"€ {node_lmp:,.2f}/MWh",
+                        tone=node_tone,
+                        delta_text=f"Generation {gen.get(node_id, 0):,.1f} MW | Demand {row['Demand']:.1f} MW",
                     )
         
         st.divider()
@@ -75,19 +147,19 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
             line_columns = st.columns(min(4, len(lines_df) - start))
             for column, (_, row) in zip(line_columns, lines_df.iloc[start:start + 4].iterrows()):
                 line_id = int(row["Line"])
-                flow_value = flows.get(line_id, 0)
+                flow_value = float(flows.get(line_id, 0))
                 line_limit = float(row["Thermal_Limit"])
+                loading_pct = (abs(flow_value) / line_limit * 100) if line_limit > 0 else 0.0
+                is_congested = abs(flow_value) >= 0.999 * line_limit if line_limit > 0 else False
                 with column:
-                    st.metric(
+                    _kpi_card(
                         f"Line {line_id}",
                         f"{flow_value:.1f} MW",
-                        help=f"From: {int(row['From'])} -> To: {int(row['To'])}\nLimit: {line_limit:.1f} MW\nλ(+): {congestion.get(line_id, {}).get('lambda_str', 0):.2f}\nλ(-): {congestion.get(line_id, {}).get('lambda_opp', 0):.2f}",
+                        tone="negative" if is_congested else "positive",
+                        delta_text=f"From {int(row['From'])} to {int(row['To'])} | Loading {loading_pct:.1f}% of {line_limit:.1f} MW",
                     )
 
         st.divider()
-
-        st.subheader("Network Topology")
-        st.caption("The graph is static and uses fixed coordinates so labels and flow values remain legible.")
         st.pyplot(
             draw_network_graph(nodes_df, lines_df, flows, lmps, congestion, hub_node=hub_node),
             use_container_width=True,
@@ -103,7 +175,7 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
             for n in nodes_df['Node']:
                 res_nodes.append({
                     "Node": int(n),
-                    "LMP (€/MWh)": lmps.get(n, 0),
+                    "LMP (EUR/MWh)": lmps.get(n, 0),
                     "Generation (MW)": gen.get(n, 0),
                     "Demand (MW)": float(nodes_df.loc[nodes_df['Node'] == n, 'Demand'].iloc[0]),
                 })
@@ -117,9 +189,11 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
                     "Line": int(l),
                     "Flow (MW)": flows.get(l, 0),
                     "Congestion Cost (+)": congestion.get(l, {}).get('lambda_str', 0),
-                    "Congestion Cost (-)": congestion.get(l, {}).get('lambda_opp', 0)
+                    "Congestion Cost (-)": congestion.get(l, {}).get('lambda_opp', 0),
                 })
             st.dataframe(pd.DataFrame(res_lines), use_container_width=True)
 
     else:
         st.error(f"The optimization failed. Solver Status: {status}")
+else:
+    st.info("Execute market clearing to generate KPIs and line flow metrics.")

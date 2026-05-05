@@ -8,7 +8,6 @@ from utils.data_loader import initialize_session_state
 
 st.set_page_config(
     page_title="Nodal Pricing & Market Clearing Engine",
-    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -16,6 +15,10 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+        html, body, [data-testid="stAppViewContainer"] {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #070b14 0%, #111827 100%);
             border-right: 1px solid rgba(255, 255, 255, 0.12);
@@ -23,13 +26,12 @@ st.markdown(
 
         section[data-testid="stSidebar"] * {
             color: #eef2ff;
-            font-family: "Georgia", "Times New Roman", serif;
         }
 
         [data-testid="stMetric"] {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(148, 163, 184, 0.28);
-            border-radius: 16px;
+            border-radius: 8px;
             padding: 1rem 1rem 0.85rem;
         }
 
@@ -89,7 +91,7 @@ def dashboard_overview():
     assumptions = [
         "DC-OPF linearized constraints with PTDF-based flow equations.",
         "Lossless transmission lines and small-angle approximations.",
-        "Inelastic demand parameters fixed at the input values.",
+        "Demand-side parameters are represented explicitly and can be tuned for elasticity studies.",
         "Generators are dispatched within Pmax limits and linear marginal costs.",
         "Thermal limits are enforced symmetrically on each transmission line.",
         "The selected hub node acts as the slack/reference bus for the PTDF basis.",
@@ -105,9 +107,9 @@ def dashboard_overview():
 
 
 pages = [
-    st.Page(dashboard_overview, title="Dashboard Overview", icon="🏠"),
-    st.Page("pages/data_input.py", title="Network Configuration", icon="🧭"),
-    st.Page("pages/results.py", title="Market Analytics", icon="📊"),
+    st.Page(dashboard_overview, title="Dashboard Overview"),
+    st.Page("pages/data_input.py", title="Network Configuration"),
+    st.Page("pages/results.py", title="Market Analytics"),
 ]
 
 navigation = st.navigation(pages)

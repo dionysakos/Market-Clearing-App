@@ -8,10 +8,10 @@ import pandas as pd
 
 def get_node_color(lmp, min_lmp, max_lmp):
     if max_lmp == min_lmp:
-        return mpl.colormaps["viridis"](0.5)
+        return mpl.colormaps["RdYlGn_r"](0.5)
 
     norm = (lmp - min_lmp) / (max_lmp - min_lmp)
-    return mpl.colormaps["viridis"](1.0 - norm)
+    return mpl.colormaps["RdYlGn_r"](norm)
 
 
 def _build_fixed_positions(nodes, hub_node=None):
@@ -20,27 +20,18 @@ def _build_fixed_positions(nodes, hub_node=None):
         return positions
 
     ordered_nodes = list(nodes)
-    if hub_node in ordered_nodes:
-        positions[hub_node] = (0.0, 0.0)
-        outer_nodes = [node for node in ordered_nodes if node != hub_node]
-    else:
-        outer_nodes = ordered_nodes
-
-    if not outer_nodes:
-        return positions
-
-    radius = 1.7 if hub_node in ordered_nodes else 1.9
-    angle_step = 2 * math.pi / len(outer_nodes)
+    radius = 1.9
+    angle_step = 2 * math.pi / len(ordered_nodes)
     start_angle = -math.pi / 2
 
-    for index, node in enumerate(outer_nodes):
+    for index, node in enumerate(ordered_nodes):
         angle = start_angle + index * angle_step
         positions[node] = (radius * math.cos(angle), radius * math.sin(angle))
 
     return positions
 
 def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices=None, hub_node=None):
-    graph = nx.DiGraph()
+    graph = nx.MultiDiGraph()
     nodes = list(nodes_df["Node"].astype(int))
     hub = hub_node if hub_node in nodes else (nodes[-1] if nodes else None)
     positions = _build_fixed_positions(nodes, hub_node=hub)
@@ -103,10 +94,13 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
             zorder=4,
         )
 
-    for from_node, to_node, data in graph.edges(data=True):
+    edge_items = list(graph.edges(data=True, keys=True))
+    edge_count = len(edge_items)
+    for edge_index, (from_node, to_node, _, data) in enumerate(edge_items):
         flow = data["flow"]
         limit = data["limit"]
-        edge_color = "#f97316" if abs(flow) >= 0.999 * limit else "#94a3b8"
+        is_congested = limit > 0 and abs(flow) >= 0.999 * limit
+        edge_color = "#f97316" if is_congested else "#22c55e"
         edge_width = 2.6 if abs(flow) >= 0.999 * limit else 1.8
 
         actual_from = from_node if flow >= 0 else to_node
@@ -116,7 +110,8 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         vector = end - start
         distance = np.linalg.norm(vector) or 1.0
         unit = vector / distance
-        label_offset = np.array([-unit[1], unit[0]]) * 0.12
+        spread = ((edge_index % 3) - 1) * 0.08 if edge_count > 1 else 0.0
+        label_offset = np.array([-unit[1], unit[0]]) * (0.12 + spread)
         label_position = (start + end) / 2 + label_offset
 
         ax.annotate(
@@ -153,7 +148,7 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         ax.set_xlim(min(xs) - pad, max(xs) + pad)
         ax.set_ylim(min(ys) - pad, max(ys) + pad)
 
-    sm = mpl.cm.ScalarMappable(cmap=mpl.colormaps["viridis"], norm=norm)
+    sm = mpl.cm.ScalarMappable(cmap=mpl.colormaps["RdYlGn_r"], norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax, fraction=0.028, pad=0.02)
     cbar.set_label("LMP (€/MWh)", color="#e5eefc")

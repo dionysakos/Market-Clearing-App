@@ -8,38 +8,33 @@ def _extract_numeric(series):
 
 
 def load_default_nodes():
-    """Returns the default dataframe for the 3-bus network nodes."""
+    """Returns an empty node dataframe for dynamic user entry."""
     return pd.DataFrame(
         {
-            "Node": [1, 2, 3],
-            "Demand": [0.0, 100.0, 200.0],
-            "Pmax": [400.0, 400.0, 400.0],
-            "Cost": [40.0, 80.0, 140.0],
+            "Node": pd.Series(dtype="Int64"),
+            "Demand": pd.Series(dtype="float64"),
+            "Pmax": pd.Series(dtype="float64"),
+            "Cost": pd.Series(dtype="float64"),
         }
     )
 
 
 def load_default_lines():
-    """Returns the default dataframe for the 3-bus network lines."""
+    """Returns an empty line dataframe for dynamic user entry."""
     return pd.DataFrame(
         {
-            "Line": [1, 2, 3],
-            "From": [1, 2, 1],
-            "To": [2, 3, 3],
-            "Thermal_Limit": [50.0, 50.0, 50.0],
-            "Reactance": [0.2, 0.05, 0.2],
+            "Line": pd.Series(dtype="Int64"),
+            "From": pd.Series(dtype="Int64"),
+            "To": pd.Series(dtype="Int64"),
+            "Thermal_Limit": pd.Series(dtype="float64"),
+            "Reactance": pd.Series(dtype="float64"),
         }
     )
 
 
 def load_default_ptdf():
-    """Returns the default PTDF matrix for the 3-bus system."""
-    ptdf_data = {
-        1: [1 / 3, 1 / 3, 2 / 3],
-        2: [-1 / 3, 2 / 3, 1 / 3],
-        3: [0.0, 0.0, 0.0],
-    }
-    return pd.DataFrame(ptdf_data, index=[1, 2, 3])
+    """Returns an empty PTDF matrix."""
+    return pd.DataFrame()
 
 
 def get_default_hub_node(nodes_df=None):
