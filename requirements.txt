@@ -2,4 +2,5 @@ pulp
 streamlit
 plotly
 pandas
-streamlit-agraph
+matplotlib
+networkx

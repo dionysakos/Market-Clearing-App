@@ -10,7 +10,7 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
     :param lines_df: ['Line', 'Thermal_Limit']
     :param ptdf_df:  PTDFs (Index=Line, Columns=Nodes)
     :param solver_path: Optional path for the CBC solver
-    :return: status, total_cost, gen_results, flow_results, lmps, congestion_prices
+    :return: status, total_cost, gen_results, flow_results, lmps, congestion_prices, system_lambda
     """
     
     # Solver 
@@ -19,7 +19,7 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
     else:
         solver = pu.PULP_CBC_CMD(msg=0, mip=False)
 
-    prob = pu.LpProblem("Economic Dispatch with Constraints", pu.LpMinimize)
+    prob = pu.LpProblem("Economic_Dispatch_with_Constraints", pu.LpMinimize)
 
     p = {} # Generation
     r = {} # Net Injection
@@ -71,7 +71,7 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
 
     # If the problem was not solved optimally, return empty results
     if status != "Optimal":
-        return status, None, None, None, None, None
+        return status, None, None, None, None, None, None
 
     # Retrieval of Results & Shadow Prices (.pi)
     total_cost = pu.value(prob.objective)
@@ -95,4 +95,4 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
         lambda_opp = prob.constraints[f"lambda_{line}_opp"].pi
         congestion_prices[line] = {'lambda_str': lambda_str, 'lambda_opp': lambda_opp}
 
-    return status, total_cost, gen_res, flow_res, lmps, congestion_prices
+    return status, total_cost, gen_res, flow_res, lmps, congestion_prices, system_lambda
