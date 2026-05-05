@@ -1,19 +1,19 @@
 import streamlit as st
 import pandas as pd
-from utils.engine import run_market_clearing_ptdf_elastic
+from utils.network_tools import calculate_ptdf
+from utils.engine import run_market_clearing  
 from utils.visualization import draw_network_graph
 
 st.set_page_config(page_title="Results | LMP Engine", page_icon="📊", layout="wide")
 st.title("📊 Market Clearing & LMPs")
 
 if 'nodes_df' not in st.session_state or 'lines_df' not in st.session_state:
-    st.warning("Δεν βρέθηκαν δεδομένα. Παρακαλώ μεταβείτε στη σελίδα 'Data Input' για να ορίσετε το δίκτυο.")
+
+    st.warning("No data found. Please navigate to the 'Data Input' page to define your network.")
     st.stop() 
 
 nodes_df = st.session_state['nodes_df']
 lines_df = st.session_state['lines_df']
-
-from utils.network_tools import calculate_ptdf
 
 # Dynamically calculate PTDF based on the user's grid topology
 try:
@@ -24,8 +24,8 @@ except Exception as e:
 
 if st.button("🚀 Execute Market Clearing", type="primary"):
     with st.spinner("Running market clearing optimization..."):
-        # Engine
-        status, welfare, gen, demand_res, flows, lmps, congestion = run_market_clearing_ptdf_elastic(
+        
+        status, cost, gen, flows, lmps, congestion = run_market_clearing(
             nodes_df, lines_df, ptdf_df
         )
         
@@ -34,12 +34,14 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
         
         # KPIs
         total_gen = sum(gen.values())
-        total_demand = sum(demand_res.values())
+        # FIXED: Since demand is inelastic, we simply sum the user's input 'Demand' column
+        total_demand = nodes_df['Demand'].sum() 
         
         kpi1, kpi2, kpi3 = st.columns(3)
-        kpi1.metric("Social Welfare", f"€ {welfare:,.2f}")
+        # FIXED: Changed from Welfare to Total Generation Cost
+        kpi1.metric("Total Generation Cost", f"€ {cost:,.2f}") 
         kpi2.metric("Total Generation", f"{total_gen:,.1f} MW")
-        kpi3.metric("Clearing Demand", f"{total_demand:,.1f} MW")
+        kpi3.metric("Total Demand", f"{total_demand:,.1f} MW")
         
         st.divider()
         
@@ -56,11 +58,14 @@ if st.button("🚀 Execute Market Clearing", type="primary"):
             st.write("📌 **Results Nodes (LMPs & Allocation)**")
             res_nodes = []
             for n in nodes_df['Node']:
+                
+                node_demand = nodes_df.loc[nodes_df['Node'] == n, 'Demand'].values
+                
                 res_nodes.append({
                     "Node": n,
                     "LMP (€/MWh)": lmps.get(n, 0),
                     "Generation (MW)": gen.get(n, 0),
-                    "Demand Served (MW)": demand_res.get(n, 0)
+                    "Demand (MW)": node_demand 
                 })
             st.dataframe(pd.DataFrame(res_nodes), use_container_width=True)
             
