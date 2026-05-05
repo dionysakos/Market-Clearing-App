@@ -2,3 +2,4 @@ pulp
 streamlit
 plotly
 pandas
+streamlit-agraph
