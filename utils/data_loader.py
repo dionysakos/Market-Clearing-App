@@ -5,8 +5,8 @@ def load_default_nodes():
     """Returns the default dataframe for the 3-bus network nodes."""
     return pd.DataFrame({
         'Node': ['node1', 'node2', 'node3'],
-        'Max_Demand': [0.0, 100.0, 200.0],
-        'Bid_Price': [0.0, 500.0, 500.0], # €/MWh consumers are willing to pay
+        # FIXED: Changed 'Max_Demand' to 'Demand' to match your engine.py
+        'Demand': [0.0, 100.0, 200.0],
         'Pmax': [400.0, 400.0, 400.0],
         'Cost': [40.0, 80.0, 140.0]       # €/MWh generation cost
     })
@@ -51,18 +51,23 @@ def validate_network_data(nodes_df, lines_df):
     Performs basic validation on the user-edited data before passing it to the engine.
     Checks include:
     - No negative thermal limits on lines
+    - Reactance cannot be zero or negative
     - No negative generation limits or demand on nodes
     - Lines must reference existing nodes
     """
-    # negative thermal limits
+    # 1. Negative thermal limits
     if (lines_df['Thermal_Limit'] < 0).any():
         return False, "Error: Thermal limits cannot be negative."
     
-    # negative generation limits or demand
-    if (nodes_df['Pmax'] < 0).any() or (nodes_df['Max_Demand'] < 0).any():
+    # ENHANCEMENT 2. Prevent Zero or Negative Reactance (avoids division by zero in DC-OPF)
+    if 'Reactance' in lines_df.columns and (lines_df['Reactance'] <= 0).any():
+        return False, "Error: Line Reactance (X) must be greater than zero for DC-OPF physics to work."
+
+    # 3. Negative generation limits or demand (Updated to 'Demand')
+    if (nodes_df['Pmax'] < 0).any() or (nodes_df['Demand'] < 0).any():
         return False, "Error: Generation limits and Demands must be positive values."
         
-    # lines reference non-existent nodes
+    # 4. Lines reference non-existent nodes
     valid_nodes = set(nodes_df['Node'])
     for _, row in lines_df.iterrows():
         if row['From'] not in valid_nodes or row['To'] not in valid_nodes:
