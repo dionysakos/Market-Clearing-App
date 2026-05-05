@@ -4,7 +4,7 @@ from streamlit_agraph import agraph, Node, Edge, Config
 
 def get_node_color(lmp, min_lmp, max_lmp):
     if max_lmp == min_lmp:
-        return "#2ECC71" 
+        return "#2ECC71" # Green if no congestion
     
     norm = (lmp - min_lmp) / (max_lmp - min_lmp)
     
@@ -27,9 +27,9 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         
         demand = row.get('Demand', row.get('Max_Demand', 0))
         
-        hover_text = (f"Κόμβος: {node_id}\n"
+        hover_text = (f"Node: {node_id}\n"
                       f"LMP: {lmp_val:.2f} €/MWh\n"
-                      f"Ζήτηση: {demand} MW")
+                      f"Demand: {demand} MW")
         
         nodes.append(Node(
             id=node_id,
@@ -46,32 +46,43 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         limit = row.get('Thermal_Limit', 9999)
         flow = flow_results.get(line_id, 0.0)
         
+        # FIX: Corrected parsing logic to extract exact node strings safely
         if 'From' in row and 'To' in row:
             from_node, to_node = str(row['From']), str(row['To'])
         else:
             parts = line_id.replace('L_', '').split('_')
-            from_node, to_node = parts, parts[2] if len(parts) > 1 else parts
+            from_node = parts
+            to_node = parts[2] if len(parts) > 1 else parts
 
-        # we consider a line congested if flow is very close to its limit
-        is_congested = abs(flow) >= 0.999 * limit
+        # 🌟 ENHANCEMENT: Physical Flow Direction 🌟
+        # If flow is negative, power is flowing backwards (To -> From).
+        # We swap the source and target so the arrows physically point the correct way.
+        actual_from = from_node if flow >= 0 else to_node
+        actual_to = to_node if flow >= 0 else from_node
+        display_flow = abs(flow)
+
+        # Congestion check based on absolute flow
+        is_congested = display_flow >= 0.999 * limit
         
-        edge_color = "#FF0000" if is_congested else "#A0A0A0" # Κόκκινο στη συμφόρηση, Γκρι αλλιώς
+        edge_color = "#FF0000" if is_congested else "#A0A0A0" # Red for congested, Gray otherwise
         edge_width = 4 if is_congested else 2
         
         cong_info = ""
         if congestion_prices and line_id in congestion_prices:
-            l_str = congestion_prices[line_id]['lambda_str']
-            l_opp = congestion_prices[line_id]['lambda_opp']
-            cong_info = f"\nCongestion Cost (+): {l_str:.2f} €\nCongestion Cost (-): {l_opp:.2f} €"
+            l_str = congestion_prices[line_id].get('lambda_str', 0)
+            l_opp = congestion_prices[line_id].get('lambda_opp', 0)
+            # Only show congestion costs if they are actually binding (> 0)
+            if l_str > 0 or l_opp > 0:
+                cong_info = f"\nCongestion Cost (+): {l_str:.2f} €\nCongestion Cost (-): {l_opp:.2f} €"
 
-        hover_text = (f"Γραμμή: {line_id}\n"
-                      f"Ροή: {flow:.2f} MW\n"
-                      f"Όριο: {limit} MW" + cong_info)
+        hover_text = (f"Line: {line_id}\n"
+                      f"Flow: {display_flow:.2f} MW\n"
+                      f"Limit: {limit} MW" + cong_info)
         
         edges.append(Edge(
-            source=from_node,
-            target=to_node,
-            label=f"{flow:.1f} MW",
+            source=actual_from,
+            target=actual_to,
+            label=f"{display_flow:.1f} MW",
             color=edge_color,
             width=edge_width,
             title=hover_text
