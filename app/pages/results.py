@@ -37,19 +37,28 @@ st.markdown(
         .kpi-neutral {
             color: #e2e8f0;
         }
+        .kpi-warning {
+            color: #f59e0b;
+        }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-def _kpi_card(label, value, tone="neutral", delta_text=None):
+def _kpi_card(label, value, tone="neutral", delta_text=None, delta_html=None):
     tone_class = {
         "positive": "kpi-positive",
         "negative": "kpi-negative",
         "neutral": "kpi-neutral",
+        "warning": "kpi-warning",
     }.get(tone, "kpi-neutral")
-    delta_block = f"<div class='kpi-delta {tone_class}'>{delta_text}</div>" if delta_text else ""
+    if delta_html is not None:
+        delta_block = f"<div class='kpi-delta'>{delta_html}</div>"
+    elif delta_text:
+        delta_block = f"<div class='kpi-delta {tone_class}'>{delta_text}</div>"
+    else:
+        delta_block = ""
     st.markdown(
         f"""
         <div class="kpi-card">
@@ -116,9 +125,14 @@ if "market_result" in st.session_state:
         with summary_columns[1]:
             _kpi_card("System λ (SMP)", f"€ {system_lambda:,.2f}/MWh", tone="neutral")
         with summary_columns[2]:
-            _kpi_card("Total Generation Cost", f"€ {cost:,.2f}", tone="negative")
+            _kpi_card("Total Generation Cost", f"€ {cost:,.2f}", tone="positive")
         with summary_columns[3]:
-            _kpi_card("Congested Lines", f"{congested_lines}", tone="negative", delta_text="At thermal limit")
+            _kpi_card(
+                "Congested Lines",
+                f"{congested_lines}",
+                tone="warning" if congested_lines > 0 else "positive",
+                delta_text="At thermal limit",
+            )
         
         st.divider()
         
@@ -129,13 +143,15 @@ if "market_result" in st.session_state:
             for column, (_, row) in zip(node_columns, nodes_df.iloc[start:start + 4].iterrows()):
                 node_id = int(row["Node"])
                 node_lmp = float(lmps.get(node_id, 0.0))
-                node_tone = "positive" if node_lmp <= float(nodes_df["Cost"].median()) else "negative"
                 with column:
                     _kpi_card(
                         f"Node {node_id}",
                         f"€ {node_lmp:,.2f}/MWh",
-                        tone=node_tone,
-                        delta_text=f"Generation {gen.get(node_id, 0):,.1f} MW | Demand {row['Demand']:.1f} MW",
+                        tone="neutral",
+                        delta_html=(
+                            f"<span class='kpi-positive'>Generation {gen.get(node_id, 0):,.1f} MW</span> | "
+                            f"<span class='kpi-negative'>Demand {row['Demand']:.1f} MW</span>"
+                        ),
                     )
         
         st.divider()
@@ -155,7 +171,7 @@ if "market_result" in st.session_state:
                     _kpi_card(
                         f"Line {line_id}",
                         f"{flow_value:.1f} MW",
-                        tone="negative" if is_congested else "positive",
+                        tone="warning" if is_congested else "positive",
                         delta_text=f"From {int(row['From'])} to {int(row['To'])} | Loading {loading_pct:.1f}% of {line_limit:.1f} MW",
                     )
 
