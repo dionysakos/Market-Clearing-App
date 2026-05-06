@@ -6,12 +6,16 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+NODE_CMAP = mpl.colormaps["PuBuGn"]
+
+
 def get_node_color(lmp, min_lmp, max_lmp):
     if max_lmp == min_lmp:
-        return mpl.colormaps["RdYlGn_r"](0.5)
+        return NODE_CMAP(0.6)
 
     norm = (lmp - min_lmp) / (max_lmp - min_lmp)
-    return mpl.colormaps["RdYlGn_r"](norm)
+    # Keep nodal shading informative without yellow tones.
+    return NODE_CMAP(0.25 + 0.65 * norm)
 
 
 def _build_fixed_positions(nodes, hub_node=None):
@@ -62,13 +66,23 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         lmp_value = lmps.get(node, 0.0)
         node_color = get_node_color(lmp_value, min_lmp, max_lmp)
         node_size = 2600 if node == hub else 2200
+        # Soft halo to make nodes pop against the dark background.
+        ax.scatter(
+            x,
+            y,
+            s=node_size + 440,
+            c=["#7dd3fc"],
+            edgecolors="none",
+            alpha=0.13,
+            zorder=2,
+        )
         ax.scatter(
             x,
             y,
             s=node_size,
             c=[node_color],
-            edgecolors="#f8fafc",
-            linewidths=2.0,
+            edgecolors="#e2e8f0",
+            linewidths=2.2,
             zorder=3,
         )
         ax.text(
@@ -89,8 +103,8 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
             ha="center",
             va="center",
             fontsize=9,
-            color="#e5eefc",
-            bbox={"boxstyle": "round,pad=0.25", "fc": "#111827", "ec": "none", "alpha": 0.86},
+            color="#f8fafc",
+            bbox={"boxstyle": "round,pad=0.28", "fc": "#0f172a", "ec": "#334155", "lw": 0.7, "alpha": 0.94},
             zorder=4,
         )
 
@@ -137,7 +151,7 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
             va="center",
             fontsize=9,
             color="#f8fafc",
-            bbox={"boxstyle": "round,pad=0.2", "fc": "#111827", "ec": "none", "alpha": 0.88},
+            bbox={"boxstyle": "round,pad=0.22", "fc": "#0f172a", "ec": "#334155", "lw": 0.65, "alpha": 0.93},
             zorder=5,
         )
 
@@ -148,7 +162,7 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         ax.set_xlim(min(xs) - pad, max(xs) + pad)
         ax.set_ylim(min(ys) - pad, max(ys) + pad)
 
-    sm = mpl.cm.ScalarMappable(cmap=mpl.colormaps["RdYlGn_r"], norm=norm)
+    sm = mpl.cm.ScalarMappable(cmap=NODE_CMAP, norm=norm)
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax, fraction=0.028, pad=0.02)
     cbar.set_label("LMP (€/MWh)", color="#e5eefc")
