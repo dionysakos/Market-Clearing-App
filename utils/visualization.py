@@ -6,16 +6,18 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-NODE_CMAP = mpl.colormaps["PuBuGn"]
+LMP_CMAP = mpl.colors.LinearSegmentedColormap.from_list(
+    "optigrid_lmp",
+    ["#0d2f1f", "#157347", "#22c55e", "#f59e0b"],
+)
 
 
 def get_node_color(lmp, min_lmp, max_lmp):
     if max_lmp == min_lmp:
-        return NODE_CMAP(0.6)
+        return LMP_CMAP(0.6)
 
     norm = (lmp - min_lmp) / (max_lmp - min_lmp)
-    # Keep nodal shading informative without yellow tones.
-    return NODE_CMAP(0.25 + 0.65 * norm)
+    return LMP_CMAP(0.12 + 0.8 * norm)
 
 
 def _build_fixed_positions(nodes, hub_node=None):
@@ -42,8 +44,6 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
 
     min_lmp = min(lmps.values()) if lmps else 0.0
     max_lmp = max(lmps.values()) if lmps else 1.0
-    norm = mpl.colors.Normalize(vmin=min_lmp, vmax=max_lmp if max_lmp != min_lmp else min_lmp + 1.0)
-
     for _, row in nodes_df.iterrows():
         node_id = int(row["Node"])
         graph.add_node(node_id, demand=row.get("Demand", 0.0), lmp=lmps.get(node_id, 0.0))
@@ -57,55 +57,56 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         graph.add_edge(from_node, to_node, line_id=line_id, flow=flow, limit=limit)
 
     fig, ax = plt.subplots(figsize=(12, 8), dpi=220)
-    fig.patch.set_facecolor("#0b1020")
-    ax.set_facecolor("#0b1020")
+    fig.patch.set_facecolor("#07110c")
+    ax.set_facecolor("#07110c")
     ax.axis("off")
 
     for node in graph.nodes:
         x, y = positions[node]
         lmp_value = lmps.get(node, 0.0)
         node_color = get_node_color(lmp_value, min_lmp, max_lmp)
-        node_size = 2600 if node == hub else 2200
-        # Soft halo to make nodes pop against the dark background.
-        ax.scatter(
-            x,
-            y,
-            s=node_size + 440,
-            c=["#7dd3fc"],
-            edgecolors="none",
-            alpha=0.13,
-            zorder=2,
-        )
+        node_size = 2400 if node == hub else 2050
+
+        # Single clean node body.
         ax.scatter(
             x,
             y,
             s=node_size,
             c=[node_color],
-            edgecolors="#e2e8f0",
-            linewidths=2.2,
+            edgecolors="#f8fafc",
+            linewidths=1.1,
+            alpha=0.85,
             zorder=3,
         )
         ax.text(
             x,
-            y + 0.12,
+            y,
             f"{node}",
             ha="center",
             va="center",
-            fontsize=14,
+            fontsize=14.8,
             fontweight="bold",
-            color="#ffffff",
-            zorder=4,
+            fontfamily="DejaVu Sans",
+            color="#f8fafc",
+            zorder=6,
         )
         ax.text(
             x,
-            y - 0.28,
+            y - 0.29,
             f"€{lmp_value:.2f}/MWh",
             ha="center",
             va="center",
-            fontsize=9,
-            color="#f8fafc",
-            bbox={"boxstyle": "round,pad=0.28", "fc": "#0f172a", "ec": "#334155", "lw": 0.7, "alpha": 0.94},
-            zorder=4,
+            fontsize=8.8,
+            fontfamily="DejaVu Sans",
+            color="#e2e8f0",
+            bbox={
+                "boxstyle": "round,pad=0.24,rounding_size=0.28",
+                "fc": "#10241a",
+                "ec": "none",
+                "lw": 0.0,
+                "alpha": 0.7,
+            },
+            zorder=5,
         )
 
     edge_items = list(graph.edges(data=True, keys=True))
@@ -115,7 +116,7 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         limit = data["limit"]
         is_congested = limit > 0 and abs(flow) >= 0.999 * limit
         edge_color = "#f97316" if is_congested else "#22c55e"
-        edge_width = 2.6 if abs(flow) >= 0.999 * limit else 1.8
+        base_width = 2.0 if is_congested else 1.6
 
         actual_from = from_node if flow >= 0 else to_node
         actual_to = to_node if flow >= 0 else from_node
@@ -128,31 +129,54 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         label_offset = np.array([-unit[1], unit[0]]) * (0.12 + spread)
         label_position = (start + end) / 2 + label_offset
 
+        # Neon halo layers.
+        glow_layers = (
+            ((10.5, 0.11), (7.0, 0.2), (4.6, 0.34))
+            if not is_congested
+            else ((8.0, 0.08), (5.2, 0.16), (3.5, 0.25))
+        )
+        for glow_width, glow_alpha in glow_layers:
+            ax.annotate(
+                "",
+                xy=end,
+                xytext=start,
+                arrowprops={
+                    "arrowstyle": "-",
+                    "color": edge_color,
+                    "lw": glow_width,
+                    "shrinkA": 28,
+                    "shrinkB": 28,
+                    "alpha": glow_alpha,
+                },
+                zorder=1,
+            )
+
+        # Core directional line.
         ax.annotate(
             "",
             xy=end,
             xytext=start,
-            arrowprops={
-                "arrowstyle": "-|>",
-                "color": edge_color,
-                "lw": edge_width,
-                "shrinkA": 28,
-                "shrinkB": 28,
-                "mutation_scale": 14,
-                "alpha": 0.95,
-            },
-            zorder=2,
-        )
+                arrowprops={
+                    "arrowstyle": "-|>",
+                    "color": edge_color,
+                    "lw": base_width,
+                    "shrinkA": 28,
+                    "shrinkB": 28,
+                    "mutation_scale": 12.5,
+                    "alpha": 1.0,
+                },
+                zorder=3,
+            )
         ax.text(
             label_position[0],
             label_position[1],
-            f"{abs(flow):.1f} MW",
+            f"{abs(flow):.1f} MW" + (" !" if is_congested else ""),
             ha="center",
             va="center",
-            fontsize=9,
-            color="#f8fafc",
-            bbox={"boxstyle": "round,pad=0.22", "fc": "#0f172a", "ec": "#334155", "lw": 0.65, "alpha": 0.93},
-            zorder=5,
+            fontsize=8.7,
+            fontfamily="DejaVu Sans",
+            color="#ffffff",
+            zorder=6,
         )
 
     if nodes:
@@ -161,13 +185,6 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         pad = 0.65
         ax.set_xlim(min(xs) - pad, max(xs) + pad)
         ax.set_ylim(min(ys) - pad, max(ys) + pad)
-
-    sm = mpl.cm.ScalarMappable(cmap=NODE_CMAP, norm=norm)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, fraction=0.028, pad=0.02)
-    cbar.set_label("LMP (€/MWh)", color="#e5eefc")
-    cbar.ax.yaxis.set_tick_params(color="#e5eefc")
-    plt.setp(cbar.ax.get_yticklabels(), color="#e5eefc")
 
     fig.tight_layout()
     return fig

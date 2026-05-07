@@ -71,6 +71,40 @@ st.markdown(
             box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
         }
 
+        .heat-glow-line {
+            animation: heatPulseLine 1.9s ease-in-out infinite;
+            filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.6)) drop-shadow(0 0 8px rgba(249, 115, 22, 0.5));
+        }
+
+        .heat-glow-node {
+            animation: heatPulseNode 1.7s ease-in-out infinite;
+            filter: drop-shadow(0 0 4px rgba(248, 113, 113, 0.6)) drop-shadow(0 0 9px rgba(239, 68, 68, 0.45));
+        }
+
+        @keyframes heatPulseLine {
+            0%, 100% {
+                opacity: 0.78;
+                stroke-width: 3;
+            }
+            50% {
+                opacity: 1;
+                stroke-width: 3.6;
+            }
+        }
+
+        @keyframes heatPulseNode {
+            0%, 100% {
+                opacity: 0.82;
+                transform: scale(1);
+                transform-origin: center;
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.06);
+                transform-origin: center;
+            }
+        }
+
         .feature-bubbles {
             display: flex;
             justify-content: center;
@@ -126,12 +160,13 @@ def dashboard_overview():
             <div style="font-size:0.92rem; margin-bottom:0.55rem;">Nodal pricing </div>
             <svg width="180" height="78" viewBox="0 0 180 78" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Nodal pricing illustration">
                 <line x1="28" y1="22" x2="90" y2="39" stroke="#22c55e" stroke-width="3" />
-                <line x1="90" y1="39" x2="152" y2="22" stroke="#f59e0b" stroke-width="3" />
+                <line class="heat-glow-line" x1="90" y1="39" x2="152" y2="22" stroke="#f97316" stroke-width="3" />
                 <line x1="90" y1="39" x2="90" y2="66" stroke="#22c55e" stroke-width="3" />
                 <circle cx="28" cy="22" r="9" fill="#22c55e" stroke="#e2e8f0" stroke-width="1.5" />
                 <circle cx="90" cy="39" r="9" fill="#22c55e" stroke="#e2e8f0" stroke-width="1.5" />
-                <circle cx="152" cy="22" r="9" fill="#ef4444" stroke="#e2e8f0" stroke-width="1.5" />
-                <circle cx="90" cy="66" r="9" fill="#ef4444" stroke="#e2e8f0" stroke-width="1.5" />
+                <circle class="heat-glow-node" cx="152" cy="22" r="9" fill="#ef4444" stroke="#e2e8f0" stroke-width="1.5" />
+                <circle class="heat-glow-node" cx="90" cy="66" r="9" fill="#ef4444" stroke="#e2e8f0" stroke-width="1.5" />
+                <text x="124" y="33" fill="#fdba74" font-size="16" font-weight="700">!</text>
             </svg>
         </div>
         <div class="feature-bubbles">
@@ -157,7 +192,7 @@ def dashboard_overview():
     st.markdown(f"<div class='assumption-grid'>{assumption_html}</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='hero-divider'></div>", unsafe_allow_html=True)
-    st.info("Use **Network Configuration** to define the grid and **Market Analytics** to run the optimization and inspect results.")
+    st.info("Design your grid. Break the limits. Clear the market. Use **Network Configuration** settings to define the grid and **Market Analytics** to run the optimization and inspect results.")
 
 
 pages = [
