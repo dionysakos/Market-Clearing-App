@@ -9,7 +9,7 @@ from utils.data_loader import initialize_session_state
 st.set_page_config(
     page_title="Clearit",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -27,13 +27,33 @@ st.markdown(
             background: rgba(7, 17, 12, 0.55);
         }
 
-        section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #0d2417 0%, #132f1f 100%);
-            border-right: 1px solid rgba(74, 222, 128, 0.22);
+        [data-testid="stNavigation"] ul {
+            display: flex;
+            justify-content: center;
+            gap: 0.55rem;
+            padding-left: 0;
+            margin: 0.35rem auto 0.9rem auto;
+            width: 100%;
         }
 
-        section[data-testid="stSidebar"] * {
-            color: #eef2ff;
+        [data-testid="stNavigation"] li {
+            max-width: 290px;
+        }
+
+        [data-testid="stNavigation"] a {
+            border-radius: 999px;
+            border: 1px solid rgba(134, 239, 172, 0.3);
+            background: rgba(18, 49, 32, 0.64);
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+        }
+
+        [data-testid="stNavigation"] a:hover {
+            border-color: rgba(74, 222, 128, 0.85);
+            background: rgba(21, 66, 40, 0.86);
+            transform: translateY(-1px);
         }
 
         [data-testid="stMetric"] {
@@ -201,5 +221,5 @@ pages = [
     st.Page("pages/results.py", title="Market Analytics"),
 ]
 
-navigation = st.navigation(pages)
+navigation = st.navigation(pages, position="top")
 navigation.run()
