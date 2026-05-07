@@ -53,7 +53,8 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
         from_node = int(row["From"])
         to_node = int(row["To"])
         flow = float(flow_results.get(line_id, 0.0))
-        limit = float(row.get("Thermal_Limit", 0.0))
+        raw_limit = row.get("Thermal_Limit", pd.NA)
+        limit = np.nan if pd.isna(raw_limit) else float(raw_limit)
         graph.add_edge(from_node, to_node, line_id=line_id, flow=flow, limit=limit)
 
     fig, ax = plt.subplots(figsize=(12, 8), dpi=220)
@@ -114,7 +115,8 @@ def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices
     for edge_index, (from_node, to_node, _, data) in enumerate(edge_items):
         flow = data["flow"]
         limit = data["limit"]
-        is_congested = limit > 0 and abs(flow) >= 0.999 * limit
+        has_limit = not pd.isna(limit)
+        is_congested = has_limit and limit > 0 and abs(flow) >= 0.999 * limit
         edge_color = "#f97316" if is_congested else "#22c55e"
         base_width = 2.0 if is_congested else 1.6
 

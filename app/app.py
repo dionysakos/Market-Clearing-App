@@ -184,7 +184,7 @@ def dashboard_overview():
         "DC-OPF linearized constraints with PTDF-based flow equations.",
         "Lossless transmission lines and small-angle approximations.",
         "Demand-side parameters are represented explicitly and can be tuned for elasticity studies.",
-        "Generators are dispatched within Pmax limits and linear marginal costs.",
+        "Generators are dispatched within Pmin/Pmax limits and linear marginal costs.",
         "Thermal limits are enforced symmetrically on each transmission line.",
     ]
 

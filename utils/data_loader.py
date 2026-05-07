@@ -7,12 +7,27 @@ def _extract_numeric(series):
     return pd.to_numeric(extracted, errors="coerce")
 
 
+def _normalize_optional_limit(value, lower_unbounded_symbol=False):
+    if pd.isna(value):
+        return pd.NA
+    text = str(value).strip()
+    if text == "":
+        return pd.NA
+    lowered = text.lower()
+    if lowered in {"∞", "+∞", "inf", "+inf", "infinity", "+infinity"}:
+        return pd.NA
+    if lower_unbounded_symbol and lowered in {"-∞", "-inf", "-infinity"}:
+        return pd.NA
+    return pd.to_numeric(text, errors="coerce")
+
+
 def load_default_nodes():
     """Returns an empty node dataframe for dynamic user entry."""
     return pd.DataFrame(
         {
             "Node": pd.Series(dtype="Int64"),
             "Demand": pd.Series(dtype="float64"),
+            "Pmin": pd.Series(dtype="float64"),
             "Pmax": pd.Series(dtype="float64"),
             "Cost": pd.Series(dtype="float64"),
         }
@@ -47,15 +62,16 @@ def normalize_network_data(nodes_df, lines_df, hub_node=None):
     nodes = nodes_df.copy()
     lines = lines_df.copy()
 
-    for column in ["Node", "Demand", "Pmax", "Cost"]:
+    for column in ["Node", "Demand", "Pmin", "Pmax", "Cost"]:
         if column not in nodes.columns:
             nodes[column] = pd.NA
-    nodes = nodes[["Node", "Demand", "Pmax", "Cost"]]
-    nodes = nodes.dropna(how="all", subset=["Demand", "Pmax", "Cost", "Node"])
+    nodes = nodes[["Node", "Demand", "Pmin", "Pmax", "Cost"]]
+    nodes = nodes.dropna(how="all", subset=["Demand", "Pmin", "Pmax", "Cost", "Node"])
     nodes = nodes.reset_index(drop=True)
     nodes["Node"] = pd.Series(range(1, len(nodes) + 1), dtype="Int64")
     nodes["Demand"] = pd.to_numeric(nodes["Demand"], errors="coerce")
-    nodes["Pmax"] = pd.to_numeric(nodes["Pmax"], errors="coerce")
+    nodes["Pmin"] = nodes["Pmin"].apply(lambda x: _normalize_optional_limit(x, lower_unbounded_symbol=True)).fillna(0.0)
+    nodes["Pmax"] = nodes["Pmax"].apply(_normalize_optional_limit)
     nodes["Cost"] = pd.to_numeric(nodes["Cost"], errors="coerce")
 
     for column in ["Line", "From", "To", "Thermal_Limit", "Reactance"]:
@@ -67,7 +83,7 @@ def normalize_network_data(nodes_df, lines_df, hub_node=None):
     lines["Line"] = pd.Series(range(1, len(lines) + 1), dtype="Int64")
     lines["From"] = _extract_numeric(lines["From"]).astype("Int64")
     lines["To"] = _extract_numeric(lines["To"]).astype("Int64")
-    lines["Thermal_Limit"] = pd.to_numeric(lines["Thermal_Limit"], errors="coerce")
+    lines["Thermal_Limit"] = lines["Thermal_Limit"].apply(_normalize_optional_limit)
     lines["Reactance"] = pd.to_numeric(lines["Reactance"], errors="coerce")
 
     normalized_hub = _extract_numeric(pd.Series([hub_node]))[0] if hub_node is not None else None
@@ -117,20 +133,30 @@ def validate_network_data(nodes_df, lines_df, hub_node=None):
     if lines_df.empty:
         return False, "Error: At least one transmission line must be defined."
 
-    if nodes_df[["Demand", "Pmax", "Cost"]].isna().any().any():
-        return False, "Error: Every node must have Demand, Pmax, and Cost values."
+    if nodes_df[["Demand", "Cost"]].isna().any().any():
+        return False, "Error: Every node must have Demand and Cost values."
 
-    if lines_df[["From", "To", "Thermal_Limit", "Reactance"]].isna().any().any():
-        return False, "Error: Every line must have From, To, Thermal_Limit, and Reactance values."
+    if lines_df[["From", "To", "Reactance"]].isna().any().any():
+        return False, "Error: Every line must have From, To, and Reactance values."
 
-    if (lines_df["Thermal_Limit"] < 0).any():
+    thermal_defined = lines_df["Thermal_Limit"].dropna()
+    if (thermal_defined < 0).any():
         return False, "Error: Thermal limits cannot be negative."
 
     if (lines_df["Reactance"] <= 0).any():
         return False, "Error: Line reactance must be greater than zero for DC-OPF physics to work."
 
-    if (nodes_df["Pmax"] < 0).any() or (nodes_df["Demand"] < 0).any():
-        return False, "Error: Generation limits and demands must be positive values."
+    if (nodes_df["Demand"] < 0).any():
+        return False, "Error: Demands must be non-negative values."
+    pmin_defined = nodes_df["Pmin"].dropna()
+    pmax_defined = nodes_df["Pmax"].dropna()
+    if (pmax_defined < 0).any():
+        return False, "Error: Pmax must be non-negative when provided."
+    if (pmin_defined < 0).any():
+        return False, "Error: Pmin must be non-negative when provided."
+    comparable_bounds = nodes_df["Pmin"].notna() & nodes_df["Pmax"].notna()
+    if (nodes_df.loc[comparable_bounds, "Pmin"] > nodes_df.loc[comparable_bounds, "Pmax"]).any():
+        return False, "Error: Pmin must be less than or equal to Pmax for every node."
 
     valid_nodes = set(nodes_df["Node"].dropna().astype(int).tolist())
     if hub_node is not None and int(hub_node) not in valid_nodes:

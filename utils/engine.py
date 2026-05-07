@@ -1,12 +1,12 @@
-import pulp as pu
 import pandas as pd
+import pulp as pu
 
 def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
     """
     We run DC-OPF using PTDFs.
     Τhe model of DC-OPF is formulated as descirbed in Anthony Papavasiliou's Book as follows:
     
-    :param nodes_df: ['Node', 'Demand', 'Pmax', 'Cost']
+    :param nodes_df: ['Node', 'Demand', 'Pmin', 'Pmax', 'Cost']
     :param lines_df: ['Line', 'Thermal_Limit']
     :param ptdf_df:  PTDFs (Index=Line, Columns=Nodes)
     :param solver_path: Optional path for the CBC solver
@@ -28,8 +28,15 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
     # Decision Variables
     for _, row in nodes_df.iterrows():
         node = row['Node']
-        # p >= 0, Pmax limit
-        p[node] = pu.LpVariable(f"p_{node}", lowBound=0, upBound=row['Pmax'], cat=pu.LpContinuous)
+        # Pmin <= p <= Pmax
+        pmin = None if pd.isna(row['Pmin']) else float(row['Pmin'])
+        pmax = None if pd.isna(row['Pmax']) else float(row['Pmax'])
+        p[node] = pu.LpVariable(
+            f"p_{node}",
+            lowBound=pmin,
+            upBound=pmax,
+            cat=pu.LpContinuous,
+        )
         # r free var
         r[node] = pu.LpVariable(f"r_{node}", cat=pu.LpContinuous)
 
@@ -61,9 +68,10 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
         f_line = pu.lpSum([ptdf_df.loc[line, node] * r[node] for node in nodes_df['Node']])
         prob += f[line] == f_line, f"psi_{line}"
 
-        # Thermal Limits (λ_str and λ_opp)
-        prob += f[line] <= limit, f"lambda_{line}_str"
-        prob += f[line] >= -limit, f"lambda_{line}_opp"
+        # Thermal Limits (λ_str and λ_opp); skip if unconstrained
+        if not pd.isna(limit):
+            prob += f[line] <= limit, f"lambda_{line}_str"
+            prob += f[line] >= -limit, f"lambda_{line}_opp"
 
     # Solution
     status_code = prob.solve(solver)
@@ -91,8 +99,10 @@ def run_market_clearing(nodes_df, lines_df, ptdf_df, solver_path=None):
     system_lambda = prob.constraints["minus_phi"].pi
     congestion_prices = {}
     for line in lines_df['Line']:
-        lambda_str = prob.constraints[f"lambda_{line}_str"].pi
-        lambda_opp = prob.constraints[f"lambda_{line}_opp"].pi
+        str_name = f"lambda_{line}_str"
+        opp_name = f"lambda_{line}_opp"
+        lambda_str = prob.constraints[str_name].pi if str_name in prob.constraints else 0.0
+        lambda_opp = prob.constraints[opp_name].pi if opp_name in prob.constraints else 0.0
         congestion_prices[line] = {'lambda_str': lambda_str, 'lambda_opp': lambda_opp}
 
     return status, total_cost, gen_res, flow_res, lmps, congestion_prices, system_lambda

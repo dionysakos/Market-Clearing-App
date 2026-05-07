@@ -13,13 +13,33 @@ def _mark_hub_manual_selection():
     st.session_state["hub_user_selected"] = True
 
 
+def _display_optional_limit(value, lower=False):
+    if pd.isna(value):
+        return "0" if lower else "∞"
+    text = str(value).strip()
+    if text == "":
+        return "0" if lower else "∞"
+    lowered = text.lower()
+    if lowered in {"∞", "+∞", "inf", "+inf", "infinity", "+infinity"}:
+        return "0" if lower else "∞"
+    if lower and lowered in {"-∞", "-inf", "-infinity"}:
+        return "0"
+    return f"{float(text):g}"
+
+
+def _prepare_optional_limit_series(series, lower=False):
+    return series.apply(lambda x: _display_optional_limit(x, lower=lower)).astype("string")
+
+
 def _prepare_nodes_for_editor(df):
     nodes = df.copy()
-    for column in ["Node", "Demand", "Pmax", "Cost"]:
+    for column in ["Node", "Demand", "Pmin", "Pmax", "Cost"]:
         if column not in nodes.columns:
             nodes[column] = pd.NA
-    nodes = nodes[["Node", "Demand", "Pmax", "Cost"]].reset_index(drop=True)
+    nodes = nodes[["Node", "Demand", "Pmin", "Pmax", "Cost"]].reset_index(drop=True)
     nodes["Node"] = pd.Series(range(1, len(nodes) + 1), dtype="Int64")
+    nodes["Pmin"] = _prepare_optional_limit_series(nodes["Pmin"], lower=True)
+    nodes["Pmax"] = _prepare_optional_limit_series(nodes["Pmax"], lower=False)
     return nodes
 
 
@@ -30,6 +50,7 @@ def _prepare_lines_for_editor(df):
             lines[column] = pd.NA
     lines = lines[["Line", "From", "To", "Thermal_Limit", "Reactance"]].reset_index(drop=True)
     lines["Line"] = pd.Series(range(1, len(lines) + 1), dtype="Int64")
+    lines["Thermal_Limit"] = _prepare_optional_limit_series(lines["Thermal_Limit"], lower=False)
     return lines
 
 
@@ -55,7 +76,18 @@ with col1:
         column_config={
             "Node": st.column_config.NumberColumn("Node", format="%d", help="Auto-incremented as rows are added."),
             "Demand": st.column_config.NumberColumn("Demand (MW)", min_value=0.0, step=1.0),
-            "Pmax": st.column_config.NumberColumn("Pmax (MW)", min_value=0.0, step=1.0),
+            "Pmin": st.column_config.TextColumn(
+                "Pmin (MW)",
+                default="0",
+                help="Use a non-negative number. Leave blank to use 0.",
+                validate=r"^\s*$|^\d+(\.\d+)?$",
+            ),
+            "Pmax": st.column_config.TextColumn(
+                "Pmax (MW)",
+                default="∞",
+                help="Use a number, leave blank, or set ∞ for relaxed upper bound.",
+                validate=r"^\s*$|^-?\d+(\.\d+)?$|^[+]?∞$|^[+]?inf(inity)?$",
+            ),
             "Cost": st.column_config.NumberColumn("Cost (€/MWh)", min_value=0.0, step=1.0),
         },
     )
@@ -72,7 +104,12 @@ with col2:
             "Line": st.column_config.NumberColumn("Line", format="%d", help="Auto-renumbered on save."),
             "From": st.column_config.NumberColumn("From Node", min_value=1, step=1),
             "To": st.column_config.NumberColumn("To Node", min_value=1, step=1),
-            "Thermal_Limit": st.column_config.NumberColumn("Thermal Limit (MW)", min_value=0.0, step=1.0),
+            "Thermal_Limit": st.column_config.TextColumn(
+                "Thermal Limit (MW)",
+                default="∞",
+                help="Use a number, leave blank, or set ∞ for unconstrained flow.",
+                validate=r"^\s*$|^\d+(\.\d+)?$|^[+]?∞$|^[+]?inf(inity)?$",
+            ),
             "Reactance": st.column_config.NumberColumn("Reactance (p.u.)", min_value=0.0001, step=0.01, format="%.4f"),
         },
     )

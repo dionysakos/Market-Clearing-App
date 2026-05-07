@@ -93,9 +93,13 @@ except Exception as e:
     st.error(f"Error calculating PTDF matrix. Please check your network topology and Reactances. Details: {e}")
     st.stop()
 
+def _stable_value(value):
+    return None if pd.isna(value) else float(value) if isinstance(value, (int, float)) else value
+
+
 network_signature = (
-    tuple(tuple(row) for row in nodes_df[["Node", "Demand", "Pmax", "Cost"]].itertuples(index=False, name=None)),
-    tuple(tuple(row) for row in lines_df[["Line", "From", "To", "Thermal_Limit", "Reactance"]].itertuples(index=False, name=None)),
+    tuple(tuple(_stable_value(v) for v in row) for row in nodes_df[["Node", "Demand", "Pmin", "Pmax", "Cost"]].itertuples(index=False, name=None)),
+    tuple(tuple(_stable_value(v) for v in row) for row in lines_df[["Line", "From", "To", "Thermal_Limit", "Reactance"]].itertuples(index=False, name=None)),
     int(hub_node),
 )
 if st.session_state.get("market_signature") != network_signature:
@@ -115,7 +119,10 @@ if "market_result" in st.session_state:
         st.success("The problem was solved optimally!")
 
         congested_lines = sum(
-            abs(float(flows.get(int(row["Line"]), 0.0))) >= 0.999 * float(row["Thermal_Limit"])
+            (
+                not pd.isna(row["Thermal_Limit"])
+                and abs(float(flows.get(int(row["Line"]), 0.0))) >= 0.999 * float(row["Thermal_Limit"])
+            )
             for _, row in lines_df.iterrows()
         )
         st.subheader("Executive Metrics")
@@ -143,13 +150,14 @@ if "market_result" in st.session_state:
             for column, (_, row) in zip(node_columns, nodes_df.iloc[start:start + 4].iterrows()):
                 node_id = int(row["Node"])
                 node_lmp = float(lmps.get(node_id, 0.0))
+                pmin_display = "-∞" if pd.isna(row["Pmin"]) else f"{float(row['Pmin']):.1f}"
                 with column:
                     _kpi_card(
                         f"Node {node_id}",
                         f"€ {node_lmp:,.2f}/MWh",
                         tone="neutral",
                         delta_html=(
-                            f"<span class='kpi-positive'>Generation {gen.get(node_id, 0):,.1f} MW</span> | "
+                            f"<span class='kpi-positive'>Generation {gen.get(node_id, 0):,.1f} MW (Pmin {pmin_display})</span> | "
                             f"<span class='kpi-negative'>Demand {row['Demand']:.1f} MW</span>"
                         ),
                     )
@@ -164,15 +172,18 @@ if "market_result" in st.session_state:
             for column, (_, row) in zip(line_columns, lines_df.iloc[start:start + 4].iterrows()):
                 line_id = int(row["Line"])
                 flow_value = float(flows.get(line_id, 0))
-                line_limit = float(row["Thermal_Limit"])
-                loading_pct = (abs(flow_value) / line_limit * 100) if line_limit > 0 else 0.0
-                is_congested = abs(flow_value) >= 0.999 * line_limit if line_limit > 0 else False
+                line_limit = row["Thermal_Limit"]
+                has_limit = not pd.isna(line_limit)
+                line_limit_value = float(line_limit) if has_limit else None
+                loading_pct = (abs(flow_value) / line_limit_value * 100) if has_limit and line_limit_value > 0 else 0.0
+                is_congested = abs(flow_value) >= 0.999 * line_limit_value if has_limit and line_limit_value > 0 else False
+                limit_label = f"{line_limit_value:.1f} MW" if has_limit else "∞"
                 with column:
                     _kpi_card(
                         f"Line {line_id}",
                         f"{flow_value:.1f} MW",
                         tone="warning" if is_congested else "positive",
-                        delta_text=f"From {int(row['From'])} to {int(row['To'])} | Loading {loading_pct:.1f}% of {line_limit:.1f} MW",
+                        delta_text=f"From {int(row['From'])} to {int(row['To'])} | Loading {loading_pct:.1f}% of {limit_label}",
                     )
 
         st.divider()
@@ -189,10 +200,14 @@ if "market_result" in st.session_state:
             st.write("Node Summary")
             res_nodes = []
             for n in nodes_df['Node']:
+                pmin_val = nodes_df.loc[nodes_df['Node'] == n, 'Pmin'].iloc[0]
+                pmax_val = nodes_df.loc[nodes_df['Node'] == n, 'Pmax'].iloc[0]
                 res_nodes.append({
                     "Node": int(n),
                     "LMP (EUR/MWh)": lmps.get(n, 0),
                     "Generation (MW)": gen.get(n, 0),
+                    "Pmin (MW)": "-∞" if pd.isna(pmin_val) else float(pmin_val),
+                    "Pmax (MW)": "∞" if pd.isna(pmax_val) else float(pmax_val),
                     "Demand (MW)": float(nodes_df.loc[nodes_df['Node'] == n, 'Demand'].iloc[0]),
                 })
             st.dataframe(pd.DataFrame(res_nodes), use_container_width=True)
