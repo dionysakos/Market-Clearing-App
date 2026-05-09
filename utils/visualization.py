@@ -38,15 +38,15 @@ def _build_fixed_positions(nodes, hub_node=None):
 
 def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices=None, hub_node=None):
     graph = nx.MultiDiGraph()
-    nodes = list(nodes_df["Node"].astype(int))
+    nodes = list(dict.fromkeys(nodes_df["Node"].astype(int).tolist()))
     hub = hub_node if hub_node in nodes else (nodes[-1] if nodes else None)
     positions = _build_fixed_positions(nodes, hub_node=hub)
 
     min_lmp = min(lmps.values()) if lmps else 0.0
     max_lmp = max(lmps.values()) if lmps else 1.0
-    for _, row in nodes_df.iterrows():
-        node_id = int(row["Node"])
-        graph.add_node(node_id, demand=row.get("Demand", 0.0), lmp=lmps.get(node_id, 0.0))
+    node_demands = nodes_df.groupby("Node", sort=False)["Demand"].sum().to_dict()
+    for node_id in nodes:
+        graph.add_node(node_id, demand=node_demands.get(node_id, 0.0), lmp=lmps.get(node_id, 0.0))
 
     for _, row in lines_df.iterrows():
         line_id = int(row["Line"])

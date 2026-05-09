@@ -86,6 +86,16 @@ if nodes_df.empty or lines_df.empty:
     st.stop()
 hub_node = st.session_state.get("hub_node", nodes_df["Node"].iloc[-1])
 
+nodes_view_df = (
+    nodes_df.groupby("Node", sort=False)
+    .agg(
+        Demand=("Demand", "sum"),
+        Pmin=("Pmin", "sum"),
+        Pmax=("Pmax", lambda s: pd.NA if s.isna().all() else s.fillna(0).sum()),
+    )
+    .reset_index()
+)
+
 # Dynamically calculate PTDF based on the user's grid topology
 try:
     ptdf_df = calculate_ptdf(nodes_df, lines_df, ref_node=hub_node)
@@ -145,9 +155,9 @@ if "market_result" in st.session_state:
         
         st.subheader("Nodal Pricing")
         st.caption("Each node card shows the locational marginal price and its dispatch/demand snapshot.")
-        for start in range(0, len(nodes_df), 4):
-            node_columns = st.columns(min(4, len(nodes_df) - start))
-            for column, (_, row) in zip(node_columns, nodes_df.iloc[start:start + 4].iterrows()):
+        for start in range(0, len(nodes_view_df), 4):
+            node_columns = st.columns(min(4, len(nodes_view_df) - start))
+            for column, (_, row) in zip(node_columns, nodes_view_df.iloc[start:start + 4].iterrows()):
                 node_id = int(row["Node"])
                 node_lmp = float(lmps.get(node_id, 0.0))
                 pmin_display = "-∞" if pd.isna(row["Pmin"]) else f"{float(row['Pmin']):.1f}"
@@ -199,16 +209,15 @@ if "market_result" in st.session_state:
         with col_res1:
             st.write("Node Summary")
             res_nodes = []
-            for n in nodes_df['Node']:
-                pmin_val = nodes_df.loc[nodes_df['Node'] == n, 'Pmin'].iloc[0]
-                pmax_val = nodes_df.loc[nodes_df['Node'] == n, 'Pmax'].iloc[0]
+            for _, node_row in nodes_view_df.iterrows():
+                n = int(node_row["Node"])
                 res_nodes.append({
                     "Node": int(n),
                     "LMP (EUR/MWh)": lmps.get(n, 0),
                     "Generation (MW)": gen.get(n, 0),
-                    "Pmin (MW)": "-∞" if pd.isna(pmin_val) else float(pmin_val),
-                    "Pmax (MW)": "∞" if pd.isna(pmax_val) else float(pmax_val),
-                    "Demand (MW)": float(nodes_df.loc[nodes_df['Node'] == n, 'Demand'].iloc[0]),
+                    "Pmin (MW)": "-∞" if pd.isna(node_row["Pmin"]) else float(node_row["Pmin"]),
+                    "Pmax (MW)": "∞" if pd.isna(node_row["Pmax"]) else float(node_row["Pmax"]),
+                    "Demand (MW)": float(node_row["Demand"]),
                 })
             st.dataframe(pd.DataFrame(res_nodes), use_container_width=True)
             

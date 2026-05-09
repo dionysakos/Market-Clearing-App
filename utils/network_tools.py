@@ -12,7 +12,7 @@ def calculate_ptdf(nodes_df, lines_df, ref_node=None, ref_node_idx=-1):
     :param ref_node_idx: Index of the reference (slack) bus. Defaults to the last node.
     :return: A pandas DataFrame representing the PTDF matrix.
     """
-    nodes = nodes_df['Node'].tolist()
+    nodes = list(dict.fromkeys(nodes_df['Node'].astype(int).tolist()))
     lines = lines_df['Line'].tolist()
     num_nodes = len(nodes)
     num_lines = len(lines)

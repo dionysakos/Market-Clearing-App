@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from utils import initialize_session_state, validate_network_data
-from utils.data_loader import normalize_network_data
+from utils.data_loader import normalize_network_data, assign_default_node_ids
 from utils.network_tools import calculate_ptdf
 
 st.title("Network Configuration")
@@ -37,7 +37,7 @@ def _prepare_nodes_for_editor(df):
         if column not in nodes.columns:
             nodes[column] = pd.NA
     nodes = nodes[["Node", "Demand", "Pmin", "Pmax", "Cost"]].reset_index(drop=True)
-    nodes["Node"] = pd.Series(range(1, len(nodes) + 1), dtype="Int64")
+    nodes["Node"] = assign_default_node_ids(nodes["Node"])
     nodes["Pmin"] = _prepare_optional_limit_series(nodes["Pmin"], lower=True)
     nodes["Pmax"] = _prepare_optional_limit_series(nodes["Pmax"], lower=False)
     return nodes
@@ -72,9 +72,14 @@ with col1:
         num_rows="dynamic",
         key="nodes_editor",
         hide_index=True,
-        disabled=["Node"],
         column_config={
-            "Node": st.column_config.NumberColumn("Node", format="%d", help="Auto-incremented as rows are added."),
+            "Node": st.column_config.NumberColumn(
+                "Node",
+                format="%d",
+                min_value=1,
+                step=1,
+                help="Defaults to auto-increment on new rows. You can edit it to place multiple generators on the same node.",
+            ),
             "Demand": st.column_config.NumberColumn("Demand (MW)", min_value=0.0, step=1.0),
             "Pmin": st.column_config.TextColumn(
                 "Pmin (MW)",
@@ -129,7 +134,7 @@ if rows_changed:
     st.session_state["draft_lines_df"] = prepared_lines
     st.rerun()
 
-node_options = list(range(1, len(prepared_nodes) + 1))
+node_options = sorted({int(node) for node in prepared_nodes["Node"].dropna().astype(int)})
 if "hub_user_selected" not in st.session_state:
     st.session_state["hub_user_selected"] = False
 

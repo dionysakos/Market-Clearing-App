@@ -7,6 +7,24 @@ def _extract_numeric(series):
     return pd.to_numeric(extracted, errors="coerce")
 
 
+def assign_default_node_ids(node_series):
+    numeric_nodes = pd.to_numeric(node_series, errors="coerce")
+    assigned = []
+    max_existing = 0
+
+    for value in numeric_nodes:
+        if pd.notna(value) and float(value).is_integer() and int(value) >= 1:
+            node_id = int(value)
+            assigned.append(node_id)
+            if node_id > max_existing:
+                max_existing = node_id
+        else:
+            max_existing += 1
+            assigned.append(max_existing)
+
+    return pd.Series(assigned, dtype="Int64")
+
+
 def _normalize_optional_limit(value, lower_unbounded_symbol=False):
     if pd.isna(value):
         return pd.NA
@@ -68,7 +86,7 @@ def normalize_network_data(nodes_df, lines_df, hub_node=None):
     nodes = nodes[["Node", "Demand", "Pmin", "Pmax", "Cost"]]
     nodes = nodes.dropna(how="all", subset=["Demand", "Pmin", "Pmax", "Cost", "Node"])
     nodes = nodes.reset_index(drop=True)
-    nodes["Node"] = pd.Series(range(1, len(nodes) + 1), dtype="Int64")
+    nodes["Node"] = assign_default_node_ids(nodes["Node"])
     nodes["Demand"] = pd.to_numeric(nodes["Demand"], errors="coerce")
     nodes["Pmin"] = nodes["Pmin"].apply(lambda x: _normalize_optional_limit(x, lower_unbounded_symbol=True)).fillna(0.0)
     nodes["Pmax"] = nodes["Pmax"].apply(_normalize_optional_limit)
