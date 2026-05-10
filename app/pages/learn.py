@@ -1,5 +1,7 @@
+import streamlit as st
 import streamlit.components.v1 as components
 
+st.title("Learn")
 
 components.html(
     """
@@ -242,57 +244,56 @@ components.html(
   <script>
     const content = {
       "lmp-smp": {
-        title: "1. LMP vs SMP",
+        title: "LMP vs SMP",
         html: `
           <p><span class="highlight">SMP (System Marginal Price)</span> represents a uniform price across the entire network, assuming a copper-plate system with no transmission constraints. <span class="highlight">LMP (Locational Marginal Price)</span> computes a unique value for each node, reflecting physical constraints of the grid.</p>
           <p><strong>Key Distinction:</strong> SMP ignores bottlenecks; LMP reflects the true marginal cost of energy at specific locations.</p>
-          <p>Indicative form: \\(LMP_i = \\lambda + \\sum_k PTDF_{k,i}(\\mu_k^+ - \\mu_k^-)\\).</p>
         `
       },
       "congestion": {
-        title: "2. Congestion & Nodal Pricing",
+        title: "Congestion & Nodal Pricing",
         html: `
           <p>Congestion arises when power flow reaches a line thermal limit. Under nodal pricing, this induces <span class="highlight">price decoupling</span>.</p>
           <p>Importing nodes typically see higher prices because local expensive units must be committed, while exporting nodes can see lower prices when low-cost generation cannot be transferred.</p>
         `
       },
       "milp": {
-        title: "3. MILP Solver Logic",
+        title: " MILP Solver Logic",
         html: `
           <p><span class="highlight">MILP</span> (Mixed-Integer Linear Programming) is the engine for unit commitment with discrete on/off variables.</p>
           <p><strong>Objective:</strong> minimize total cost (fuel + start-up) while satisfying binary and physical constraints such as minimum up/down times and ramp-rate limits.</p>
         `
       },
       "optimal": {
-        title: "4. The Optimal Solution",
+        title: "The Optimal Solution",
         html: `
           <p>The optimal solution is the feasible dispatch that minimizes total system cost while respecting power-balance and network constraints.</p>
           <p>It represents the most economically efficient operating point under Kirchhoff-consistent flows and generator technical limits.</p>
         `
       },
       "zonal": {
-        title: "5. Zonal Pricing vs Nodal LMPs",
+        title: "Zonal Pricing vs Nodal LMPs",
         html: `
           <p><span class="highlight">Zonal pricing</span> aggregates many nodes into one area price and may mask internal congestion.</p>
           <p><span class="highlight">Nodal pricing</span> prices each bus individually, providing more granular and physically accurate economic signals.</p>
         `
       },
       "redispatch": {
-        title: "6. Redispatching Mechanics",
+        title: "Redispatching Mechanics",
         html: `
           <p>Redispatch is a post-market corrective action by the TSO when physical violations remain after initial clearing.</p>
           <p>Selected generators are instructed to increase or decrease output to relieve bottlenecks, usually at additional cost.</p>
         `
       },
       "merit": {
-        title: "7. Generator Merit Order",
+        title: "Generator Merit Order",
         html: `
           <p>The merit order ranks plants by marginal cost (MC), from lowest to highest.</p>
           <p>Low-MC resources dispatch first; higher-MC units enter later and can set market-clearing price.</p>
         `
       },
       "horizon": {
-        title: "8. Market Horizon: DAM, Intraday, Balancing, Forward",
+        title: "Market Horizon: DAM, Intraday, Balancing, Forward",
         html: `
           <ul>
             <li><span class="highlight">Forward</span>: long-horizon contracts for hedging.</li>
