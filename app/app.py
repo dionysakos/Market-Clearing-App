@@ -336,7 +336,7 @@ def dashboard_overview():
 
 pages = [
     st.Page(dashboard_overview, title="Dashboard"),
-    st.Page("pages/data_input.py", title="Config"),
+    st.Page("pages/data_input.py", title="Network"),
     st.Page("pages/results.py", title="Analytics"),
     st.Page("pages/learn.py", title="Learn"),
 ]

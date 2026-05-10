@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from utils.network_tools import calculate_ptdf
 from utils.engine import run_market_clearing  
 from utils.visualization import draw_network_graph
@@ -69,6 +70,84 @@ def _kpi_card(label, value, tone="neutral", delta_text=None, delta_html=None):
         """,
         unsafe_allow_html=True,
     )
+
+
+def _build_generation_bar_chart(nodes_df, generation_by_node):
+    node_order = list(dict.fromkeys(nodes_df["Node"].astype(int).tolist()))
+    demand_by_node = nodes_df.groupby("Node", sort=False)["Demand"].sum().astype(float).to_dict()
+    marginal_cost_by_node = nodes_df.groupby("Node", sort=False)["Cost"].mean().astype(float).to_dict()
+
+    x_labels = [f"Node {node}" for node in node_order]
+    generation_values = [float(generation_by_node.get(node, 0.0)) for node in node_order]
+    customdata = [
+        [float(marginal_cost_by_node.get(node, 0.0)), float(demand_by_node.get(node, 0.0))]
+        for node in node_order
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=x_labels,
+            y=generation_values,
+            marker={
+                "color": "rgba(0, 210, 255, 0.2)",
+                "line": {"color": "rgba(0, 210, 255, 0.0)", "width": 0},
+            },
+            width=0.86,
+            opacity=0.42,
+            hoverinfo="skip",
+            showlegend=False,
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=x_labels,
+            y=generation_values,
+            customdata=customdata,
+            marker={
+                "color": "rgba(46, 204, 113, 0.93)",
+                "line": {"color": "rgba(167, 243, 208, 0.95)", "width": 1.2},
+            },
+            width=0.62,
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Generation: %{y:.1f} MW<br>"
+                "Marginal Cost: €%{customdata[0]:.2f}/MWh<br>"
+                "Demand: %{customdata[1]:.1f} MW"
+                "<extra></extra>"
+            ),
+            showlegend=False,
+        )
+    )
+
+    fig.update_layout(
+        barmode="overlay",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin={"l": 14, "r": 14, "t": 12, "b": 22},
+        xaxis={
+            "showgrid": False,
+            "zeroline": False,
+            "showline": False,
+            "tickfont": {"family": "Inter, Roboto Mono, Arial, sans-serif", "size": 12, "color": "#f8fafc"},
+        },
+        yaxis={
+            "title": {"text": "MW", "font": {"family": "Inter, Roboto Mono, Arial, sans-serif", "size": 12, "color": "#f8fafc"}},
+            "showgrid": True,
+            "gridcolor": "rgba(148, 163, 184, 0.24)",
+            "gridwidth": 1,
+            "zeroline": False,
+            "tickfont": {"family": "Inter, Roboto Mono, Arial, sans-serif", "size": 12, "color": "#f8fafc"},
+        },
+        hoverlabel={
+            "bgcolor": "rgba(3, 20, 14, 0.95)",
+            "bordercolor": "#2ecc71",
+            "font": {"family": "Inter, Roboto Mono, Arial, sans-serif", "size": 12, "color": "#f8fafc"},
+        },
+        font={"family": "Inter, Roboto Mono, Arial, sans-serif", "color": "#f8fafc"},
+        height=360,
+    )
+    return fig
 
 
 st.title("Market Analytics")
@@ -219,34 +298,13 @@ if "market_result" in st.session_state:
 
         st.divider()
 
-        col_res1, col_res2 = st.columns(2)
-        
-        with col_res1:
-            st.write("Node Summary")
-            res_nodes = []
-            for _, node_row in nodes_view_df.iterrows():
-                n = int(node_row["Node"])
-                res_nodes.append({
-                    "Node": int(n),
-                    "LMP (EUR/MWh)": lmps.get(n, 0),
-                    "Generation (MW)": gen.get(n, 0),
-                    "Pmin (MW)": "-∞" if pd.isna(node_row["Pmin"]) else float(node_row["Pmin"]),
-                    "Pmax (MW)": "∞" if pd.isna(node_row["Pmax"]) else float(node_row["Pmax"]),
-                    "Demand (MW)": float(node_row["Demand"]),
-                })
-            st.dataframe(pd.DataFrame(res_nodes), use_container_width=True)
-            
-        with col_res2:
-            st.write("Line Summary")
-            res_lines = []
-            for l in lines_df['Line']:
-                res_lines.append({
-                    "Line": int(l),
-                    "Flow (MW)": flows.get(l, 0),
-                    "Congestion Cost (+)": congestion.get(l, {}).get('lambda_str', 0),
-                    "Congestion Cost (-)": congestion.get(l, {}).get('lambda_opp', 0),
-                })
-            st.dataframe(pd.DataFrame(res_lines), use_container_width=True)
+        st.subheader("Generation Dispatch Profile")
+        st.caption("Hover each bar to inspect dispatched generation and marginal cost by node.")
+        st.plotly_chart(
+            _build_generation_bar_chart(nodes_df, gen),
+            use_container_width=True,
+            config={"displaylogo": False, "toImageButtonOptions": {"format": "svg", "filename": "generation-dispatch"}},
+        )
 
     else:
         st.error(f"The optimization failed. Solver Status: {status}")
