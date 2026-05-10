@@ -1,192 +1,253 @@
 import math
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
 import pandas as pd
-
-LMP_CMAP = mpl.colors.LinearSegmentedColormap.from_list(
-    "optigrid_lmp",
-    ["#0d2f1f", "#157347", "#22c55e", "#f59e0b"],
-)
+import plotly.graph_objects as go
 
 
-def get_node_color(lmp, min_lmp, max_lmp):
-    if max_lmp == min_lmp:
-        return LMP_CMAP(0.6)
-
-    norm = (lmp - min_lmp) / (max_lmp - min_lmp)
-    return LMP_CMAP(0.12 + 0.8 * norm)
-
-
-def _build_fixed_positions(nodes, hub_node=None):
-    positions = {}
+def _build_fixed_positions(nodes):
     if not nodes:
-        return positions
+        return {}
 
-    ordered_nodes = list(nodes)
     radius = 1.9
-    angle_step = 2 * math.pi / len(ordered_nodes)
+    angle_step = 2 * math.pi / len(nodes)
     start_angle = -math.pi / 2
+    return {
+        node: (
+            radius * math.cos(start_angle + index * angle_step),
+            radius * math.sin(start_angle + index * angle_step),
+        )
+        for index, node in enumerate(nodes)
+    }
 
-    for index, node in enumerate(ordered_nodes):
-        angle = start_angle + index * angle_step
-        positions[node] = (radius * math.cos(angle), radius * math.sin(angle))
 
-    return positions
+def _node_orb_color(lmp, min_lmp, max_lmp):
+    if max_lmp <= min_lmp:
+        return "#45c970"
+    ratio = max(0.0, min(1.0, (float(lmp) - min_lmp) / (max_lmp - min_lmp)))
+    if ratio < 0.35:
+        return "#28b36f"
+    if ratio < 0.7:
+        return "#46d47a"
+    return "#f6a637"
 
-def draw_network_graph(nodes_df, lines_df, flow_results, lmps, congestion_prices=None, hub_node=None):
-    graph = nx.MultiDiGraph()
+
+def draw_network_graph(
+    nodes_df,
+    lines_df,
+    flow_results,
+    lmps,
+    generation_results=None,
+    congestion_prices=None,
+    hub_node=None,
+    system_lambda=None,
+):
+    del hub_node  # Reserved for future layout variants.
+    del congestion_prices  # Reserved for future line hover details.
+    del system_lambda  # Reserved for future decomposition display.
+
     nodes = list(dict.fromkeys(nodes_df["Node"].astype(int).tolist()))
-    hub = hub_node if hub_node in nodes else (nodes[-1] if nodes else None)
-    positions = _build_fixed_positions(nodes, hub_node=hub)
+    positions = _build_fixed_positions(nodes)
+    demand_by_node = nodes_df.groupby("Node", sort=False)["Demand"].sum().astype(float).to_dict()
 
     min_lmp = min(lmps.values()) if lmps else 0.0
     max_lmp = max(lmps.values()) if lmps else 1.0
-    node_demands = nodes_df.groupby("Node", sort=False)["Demand"].sum().to_dict()
-    for node_id in nodes:
-        graph.add_node(node_id, demand=node_demands.get(node_id, 0.0), lmp=lmps.get(node_id, 0.0))
 
-    for _, row in lines_df.iterrows():
-        line_id = int(row["Line"])
+    fig = go.Figure()
+
+    for line_index, (_, row) in enumerate(lines_df.iterrows()):
         from_node = int(row["From"])
         to_node = int(row["To"])
-        flow = float(flow_results.get(line_id, 0.0))
+        flow = float(flow_results.get(int(row["Line"]), 0.0))
         raw_limit = row.get("Thermal_Limit", pd.NA)
-        limit = np.nan if pd.isna(raw_limit) else float(raw_limit)
-        graph.add_edge(from_node, to_node, line_id=line_id, flow=flow, limit=limit)
+        has_limit = not pd.isna(raw_limit)
+        limit = float(raw_limit) if has_limit else None
+        is_congested = bool(has_limit and limit > 0 and abs(flow) >= 0.999 * limit)
+        line_color = "#ff7a00" if is_congested else "#00e676"
 
-    fig, ax = plt.subplots(figsize=(12, 8), dpi=220)
-    fig.patch.set_facecolor("#07110c")
-    ax.set_facecolor("#07110c")
-    ax.axis("off")
+        x0, y0 = positions[from_node]
+        x1, y1 = positions[to_node]
 
-    for node in graph.nodes:
+        for glow_width, glow_opacity in ((18, 0.06), (11, 0.12), (7, 0.2)):
+            fig.add_trace(
+                go.Scatter(
+                    x=[x0, x1],
+                    y=[y0, y1],
+                    mode="lines",
+                    line={"color": line_color, "width": glow_width},
+                    opacity=glow_opacity,
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+
+        fig.add_trace(
+            go.Scatter(
+                x=[x0, x1],
+                y=[y0, y1],
+                mode="lines",
+                line={"color": line_color, "width": 4},
+                opacity=1.0,
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+        dx = x1 - x0
+        dy = y1 - y0
+        length = math.hypot(dx, dy)
+        if length > 0:
+            ux = dx / length
+            uy = dy / length
+            mid_x = 0.5 * (x0 + x1)
+            mid_y = 0.5 * (y0 + y1)
+            side = 1 if line_index % 2 == 0 else -1
+            label_offset = 0.2
+            label_x = mid_x - uy * label_offset * side
+            label_y = mid_y + ux * label_offset * side
+            fig.add_annotation(
+                x=label_x,
+                y=label_y,
+                text=f"{flow:.1f} MW",
+                showarrow=False,
+                xanchor="center",
+                yanchor="middle",
+                font={
+                    "family": "Inter, Roboto Mono, Arial, sans-serif",
+                    "size": 10,
+                    "color": "#f8fafc",
+                },
+                bgcolor="rgba(5, 26, 18, 0.9)",
+                bordercolor="rgba(148, 163, 184, 0.25)",
+                borderwidth=1,
+                borderpad=2,
+            )
+
+        arrow_x = x0 + 0.72 * (x1 - x0)
+        arrow_y = y0 + 0.72 * (y1 - y0)
+        if abs(x1 - x0) >= abs(y1 - y0):
+            arrow_symbol = "triangle-right" if x1 >= x0 else "triangle-left"
+        else:
+            arrow_symbol = "triangle-up" if y1 >= y0 else "triangle-down"
+        fig.add_trace(
+            go.Scatter(
+                x=[arrow_x],
+                y=[arrow_y],
+                mode="markers",
+                marker={
+                    "symbol": arrow_symbol,
+                    "size": 10.5,
+                    "color": line_color,
+                    "line": {"width": 0},
+                },
+                opacity=0.95,
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+    node_x = []
+    node_y = []
+    node_text = []
+    node_custom = []
+    node_sizes = []
+    node_colors = []
+    for node in nodes:
         x, y = positions[node]
-        lmp_value = lmps.get(node, 0.0)
-        node_color = get_node_color(lmp_value, min_lmp, max_lmp)
-        node_size = 2400 if node == hub else 2050
+        lmp_value = float(lmps.get(node, 0.0))
+        demand = float(demand_by_node.get(node, 0.0))
+        generation = float((generation_results or {}).get(node, 0.0))
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(f"N{node}")
+        node_custom.append([node, demand, generation, lmp_value])
+        node_sizes.append(28)
+        node_colors.append(_node_orb_color(lmp_value, min_lmp, max_lmp))
 
-        # Single clean node body.
-        ax.scatter(
-            x,
-            y,
-            s=node_size,
-            c=[node_color],
-            edgecolors="#f8fafc",
-            linewidths=1.1,
-            alpha=0.85,
-            zorder=3,
-        )
-        ax.text(
-            x,
-            y,
-            f"{node}",
-            ha="center",
-            va="center",
-            fontsize=14.8,
-            fontweight="bold",
-            fontfamily="DejaVu Sans",
-            color="#f8fafc",
-            zorder=6,
-        )
-        ax.text(
-            x,
-            y - 0.29,
-            f"€{lmp_value:.2f}/MWh",
-            ha="center",
-            va="center",
-            fontsize=8.8,
-            fontfamily="DejaVu Sans",
-            color="#e2e8f0",
-            bbox={
-                "boxstyle": "round,pad=0.24,rounding_size=0.28",
-                "fc": "#10241a",
-                "ec": "none",
-                "lw": 0.0,
-                "alpha": 0.7,
+    fig.add_trace(
+        go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers",
+            marker={
+                "size": [42 for _ in node_sizes],
+                "color": "#80ffb9",
+                "opacity": 0.15,
+                "line": {"width": 0},
             },
-            zorder=5,
+            hoverinfo="skip",
+            showlegend=False,
         )
+    )
 
-    edge_items = list(graph.edges(data=True, keys=True))
-    edge_count = len(edge_items)
-    for edge_index, (from_node, to_node, _, data) in enumerate(edge_items):
-        flow = data["flow"]
-        limit = data["limit"]
-        has_limit = not pd.isna(limit)
-        is_congested = has_limit and limit > 0 and abs(flow) >= 0.999 * limit
-        edge_color = "#f97316" if is_congested else "#22c55e"
-        base_width = 2.0 if is_congested else 1.6
-
-        actual_from = from_node if flow >= 0 else to_node
-        actual_to = to_node if flow >= 0 else from_node
-        start = np.array(positions[actual_from])
-        end = np.array(positions[actual_to])
-        vector = end - start
-        distance = np.linalg.norm(vector) or 1.0
-        unit = vector / distance
-        spread = ((edge_index % 3) - 1) * 0.08 if edge_count > 1 else 0.0
-        label_offset = np.array([-unit[1], unit[0]]) * (0.12 + spread)
-        label_position = (start + end) / 2 + label_offset
-
-        # Neon halo layers.
-        glow_layers = (
-            ((10.5, 0.11), (7.0, 0.2), (4.6, 0.34))
-            if not is_congested
-            else ((8.0, 0.08), (5.2, 0.16), (3.5, 0.25))
+    fig.add_trace(
+        go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers+text",
+            text=node_text,
+            textposition="middle center",
+            textfont={
+                "family": "Inter, Roboto Mono, Arial, sans-serif",
+                "size": 12,
+                "color": "#f8fafc",
+            },
+            marker={
+                "size": node_sizes,
+                "color": node_colors,
+                "opacity": 0.92,
+                "line": {"color": "#d9fbe8", "width": 1.6},
+            },
+            customdata=node_custom,
+            hovertemplate=(
+                "<b>Node %{customdata[0]}</b><br>"
+                "Total Demand: %{customdata[1]:.1f} MW<br>"
+                "Generation: %{customdata[2]:.1f} MW<br>"
+                "LMP: €%{customdata[3]:.2f}/MWh"
+                "<extra></extra>"
+            ),
+            showlegend=False,
         )
-        for glow_width, glow_alpha in glow_layers:
-            ax.annotate(
-                "",
-                xy=end,
-                xytext=start,
-                arrowprops={
-                    "arrowstyle": "-",
-                    "color": edge_color,
-                    "lw": glow_width,
-                    "shrinkA": 28,
-                    "shrinkB": 28,
-                    "alpha": glow_alpha,
-                },
-                zorder=1,
-            )
+    )
 
-        # Core directional line.
-        ax.annotate(
-            "",
-            xy=end,
-            xytext=start,
-                arrowprops={
-                    "arrowstyle": "-|>",
-                    "color": edge_color,
-                    "lw": base_width,
-                    "shrinkA": 28,
-                    "shrinkB": 28,
-                    "mutation_scale": 12.5,
-                    "alpha": 1.0,
-                },
-                zorder=3,
-            )
-        ax.text(
-            label_position[0],
-            label_position[1],
-            f"{abs(flow):.1f} MW" + (" !" if is_congested else ""),
-            ha="center",
-            va="center",
-            fontsize=8.7,
-            fontfamily="DejaVu Sans",
-            color="#ffffff",
-            zorder=6,
-        )
+    fig.update_layout(
+        paper_bgcolor="#051a12",
+        plot_bgcolor="#051a12",
+        margin={"l": 12, "r": 12, "t": 12, "b": 12},
+        height=620,
+        xaxis={
+            "visible": False,
+            "showgrid": False,
+            "zeroline": False,
+            "showticklabels": False,
+            "fixedrange": True,
+        },
+        yaxis={
+            "visible": False,
+            "showgrid": False,
+            "zeroline": False,
+            "showticklabels": False,
+            "scaleanchor": "x",
+            "scaleratio": 1,
+            "fixedrange": True,
+        },
+        hovermode="closest",
+        hoverlabel={
+            "bgcolor": "rgba(2, 12, 8, 0.96)",
+            "bordercolor": "#00e676",
+            "font": {
+                "family": "Inter, Roboto Mono, Arial, sans-serif",
+                "size": 12,
+                "color": "#f8fafc",
+            },
+            "align": "left",
+        },
+        font={"family": "Inter, Roboto Mono, Arial, sans-serif", "color": "#e2e8f0", "size": 11},
+        dragmode=False,
+    )
 
-    if nodes:
-        xs = [positions[node][0] for node in nodes]
-        ys = [positions[node][1] for node in nodes]
-        pad = 0.65
-        ax.set_xlim(min(xs) - pad, max(xs) + pad)
-        ax.set_ylim(min(ys) - pad, max(ys) + pad)
+    if node_x and node_y:
+        pad = 0.9
+        fig.update_xaxes(range=[min(node_x) - pad, max(node_x) + pad])
+        fig.update_yaxes(range=[min(node_y) - pad, max(node_y) + pad])
 
-    fig.tight_layout()
     return fig

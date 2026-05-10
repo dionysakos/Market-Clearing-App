@@ -197,9 +197,24 @@ if "market_result" in st.session_state:
                     )
 
         st.divider()
-        st.pyplot(
-            draw_network_graph(nodes_df, lines_df, flows, lmps, congestion, hub_node=hub_node),
+        st.subheader("Visualization of Nodal Pricing")
+        st.info("Hover on nodes for results (Generation, LMP, Demand).")
+        st.plotly_chart(
+            draw_network_graph(
+                nodes_df,
+                lines_df,
+                flows,
+                lmps,
+                gen,
+                congestion,
+                hub_node=hub_node,
+                system_lambda=system_lambda,
+            ),
             use_container_width=True,
+            config={
+                "displaylogo": False,
+                "toImageButtonOptions": {"format": "svg", "filename": "lmp-network"},
+            },
         )
 
         st.divider()
