@@ -16,7 +16,7 @@ st.markdown(
     """
     <style>
         html, body, [data-testid="stAppViewContainer"] {
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         [data-testid="stAppViewContainer"] {
@@ -27,33 +27,152 @@ st.markdown(
             background: rgba(7, 17, 12, 0.55);
         }
 
+        [data-testid="stNavigation"] {
+            max-width: 1180px;
+            margin: 0.15rem auto 0.7rem auto;
+            padding: 0 0.9rem;
+            font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
         [data-testid="stNavigation"] ul {
             display: flex;
             justify-content: center;
-            gap: 0.55rem;
+            align-items: center;
+            gap: 1.1rem;
             padding-left: 0;
-            margin: 0.35rem auto 0.9rem auto;
+            margin: 0 auto;
             width: 100%;
         }
 
         [data-testid="stNavigation"] li {
-            max-width: 290px;
+            list-style: none;
+            min-width: 150px;
+            max-width: 220px;
         }
 
-        [data-testid="stNavigation"] a {
-            border-radius: 999px;
-            border: 1px solid rgba(134, 239, 172, 0.3);
-            background: rgba(18, 49, 32, 0.64);
+        [data-testid="stNavigation"] :is(a, button, [role="link"]) {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            width: 100%;
+            padding: 0.46rem 0.92rem;
+            border-radius: 999px !important;
+            border: 1px solid rgba(148, 163, 184, 0.28) !important;
+            background: linear-gradient(140deg, rgba(34, 54, 47, 0.5), rgba(11, 26, 19, 0.54)) !important;
+            backdrop-filter: blur(9px);
+            -webkit-backdrop-filter: blur(9px);
             text-align: center;
             font-weight: 600;
-            transition: all 0.2s ease;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+            letter-spacing: 0.01em;
+            color: rgba(236, 253, 245, 0.6) !important;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
+            transition: color 0.22s ease, border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease !important;
+            text-decoration: none !important;
         }
 
-        [data-testid="stNavigation"] a:hover {
-            border-color: rgba(74, 222, 128, 0.85);
-            background: rgba(21, 66, 40, 0.86);
-            transform: translateY(-1px);
+        [data-testid="stNavigation"] :is(a, button, [role="link"]):hover {
+            color: rgba(236, 253, 245, 1) !important;
+            border-color: rgba(45, 212, 191, 0.75) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        [data-testid="stNavigation"] :is(a, button, [role="link"])::after {
+            content: "";
+            position: absolute;
+            left: 16%;
+            right: 16%;
+            bottom: 0.24rem;
+            height: 2px;
+            border-radius: 99px;
+            background: #2dd4bf;
+            box-shadow: 0 0 8px rgba(45, 212, 191, 0.8);
+            transform: scaleX(0);
+            transform-origin: left;
+            opacity: 0;
+            transition: transform 0.22s ease, opacity 0.22s ease;
+        }
+
+        [data-testid="stNavigation"] :is(a, button, [role="link"]):hover::after {
+            transform: scaleX(1);
+            opacity: 1;
+        }
+
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[aria-current="page"],
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[aria-selected="true"],
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[data-selected="true"],
+        [data-testid="stNavigation"] li[aria-current="page"] :is(a, button, [role="link"]),
+        [data-testid="stNavigation"] li[aria-selected="true"] :is(a, button, [role="link"]),
+        [data-testid="stNavigation"] li[data-selected="true"] :is(a, button, [role="link"]) {
+            color: #03231c !important;
+            border-color: rgba(45, 212, 191, 0.98) !important;
+            background: linear-gradient(120deg, #2dd4bf 0%, #14b8a6 100%) !important;
+            box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.45), 0 0 16px rgba(45, 212, 191, 0.55), 0 10px 26px rgba(0, 0, 0, 0.28) !important;
+        }
+
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[aria-current="page"]::after,
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[aria-selected="true"]::after,
+        [data-testid="stNavigation"] :is(a, button, [role="link"])[data-selected="true"]::after,
+        [data-testid="stNavigation"] li[aria-current="page"] :is(a, button, [role="link"])::after,
+        [data-testid="stNavigation"] li[aria-selected="true"] :is(a, button, [role="link"])::after,
+        [data-testid="stNavigation"] li[data-selected="true"] :is(a, button, [role="link"])::after {
+            transform: scaleX(1);
+            opacity: 0.92;
+            background: rgba(3, 35, 28, 0.55);
+            box-shadow: none;
+        }
+
+        [data-testid="stNavigation"] li:nth-child(1) :is(a, button, [role="link"])::before {
+            content: "▦";
+            font-size: 0.88rem;
+            opacity: 0.95;
+        }
+
+        [data-testid="stNavigation"] li:nth-child(2) :is(a, button, [role="link"])::before {
+            content: "◌";
+            font-size: 0.92rem;
+            opacity: 0.95;
+        }
+
+        [data-testid="stNavigation"] li:nth-child(3) :is(a, button, [role="link"])::before {
+            content: "↗";
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        [data-testid="stNavigation"] li:nth-child(4) :is(a, button, [role="link"])::before {
+            content: "◧";
+            font-size: 0.9rem;
+            opacity: 0.95;
+        }
+
+        /* Compatibility fallback for Streamlit nav markup variants */
+        :where([data-testid="stNavigation"], [data-testid="stSidebarNav"]) :where(a, button, [role="link"], [data-testid="stPageLink"]) {
+            border-radius: 999px !important;
+            border: 1px solid rgba(148, 163, 184, 0.28) !important;
+            background: linear-gradient(140deg, rgba(34, 54, 47, 0.5), rgba(11, 26, 19, 0.54)) !important;
+            color: rgba(236, 253, 245, 0.6) !important;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25) !important;
+            text-decoration: none !important;
+            transition: color 0.22s ease, border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease !important;
+            position: relative;
+        }
+
+        :where([data-testid="stNavigation"], [data-testid="stSidebarNav"]) :where(a, button, [role="link"], [data-testid="stPageLink"]):hover {
+            color: rgba(236, 253, 245, 1) !important;
+            border-color: rgba(45, 212, 191, 0.75) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        :where([data-testid="stNavigation"], [data-testid="stSidebarNav"]) :where(a, button, [role="link"], [data-testid="stPageLink"])[aria-current="page"],
+        :where([data-testid="stNavigation"], [data-testid="stSidebarNav"]) :where(a, button, [role="link"], [data-testid="stPageLink"])[aria-selected="true"],
+        :where([data-testid="stNavigation"], [data-testid="stSidebarNav"]) :where(a, button, [role="link"], [data-testid="stPageLink"])[data-selected="true"] {
+            color: #03231c !important;
+            border-color: rgba(45, 212, 191, 0.98) !important;
+            background: linear-gradient(120deg, #2dd4bf 0%, #14b8a6 100%) !important;
+            box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.45), 0 0 16px rgba(45, 212, 191, 0.55), 0 10px 26px rgba(0, 0, 0, 0.28) !important;
+            opacity: 1 !important;
         }
 
         [data-testid="stMetric"] {
@@ -216,9 +335,10 @@ def dashboard_overview():
 
 
 pages = [
-    st.Page(dashboard_overview, title="Dashboard Overview"),
-    st.Page("pages/data_input.py", title="Network Configuration"),
-    st.Page("pages/results.py", title="Market Analytics"),
+    st.Page(dashboard_overview, title="Dashboard"),
+    st.Page("pages/data_input.py", title="Config"),
+    st.Page("pages/results.py", title="Analytics"),
+    st.Page("pages/learn.py", title="Learn"),
 ]
 
 navigation = st.navigation(pages, position="top")
