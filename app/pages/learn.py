@@ -214,7 +214,7 @@ components.html(
 <body>
   <div class="learn-shell">
     <div class="hero">
-      Welcome to the Knowledge Repository. Engage with the modules below to master power system economics.
+      Welcome to the Knowledge Repository. Engage with the modules below.
     </div>
 
     <div class="bubble-zone">
