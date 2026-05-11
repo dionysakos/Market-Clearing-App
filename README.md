@@ -2,7 +2,7 @@
 
 ## Nodal Market-Clearing App & Congestion Analytics
 
-Clearit is a  simulation environment designed for **Locational Marginal Pricing** analysis and **Economic Dispatch** within linearized power systems. Leveraging a **Mixed-Integer Linear Programming**  core, the application provides a transparent, data-driven visualization of market-clearing mechanisms, transmission constraints, and system-wide economic efficiency.
+Clearit is a  simulation environment designed for **Locational Marginal Pricing** analysis and **Economic Dispatch** within linearized power systems. Leveraging a **Linear Programming**  core, the application provides a transparent, data-driven visualization of market-clearing mechanisms, transmission constraints, and system-wide economic efficiency.
 
 ## Live Deployment
 
@@ -14,7 +14,7 @@ The application is deployed as a cloud-native service and can be accessed via th
 
 * **Linearized Flow** Equations: Utilizes Power Transfer Distribution Factors (**PTDFs**) for flow sensitivity analysis.
 
-* Optimization Engine: Employs **MILP** solver to determine the optimal dispatch points while satisfying some basic constraints.
+* Optimization Engine: Employs **LP** solver to determine the optimal dispatch points while satisfying some basic constraints.
 
 > The constraints include: Generation Capacity Limits (`P_max`,`P_min`), Network Thermal Limits (MW Flow constraints) & System Load Balance (Market Clearing)           
 
@@ -50,7 +50,7 @@ A dedicated knowledge repository containing short, key academic insights:
 * **Optimal** status.
 * **Energy Makets** & Horizon.
 * **Zonal vs Nodal** Pricing.
-* **MILP** Logic.
+* **LP** Logic.
 * **Congestion**
 
 ## Installation & Setup

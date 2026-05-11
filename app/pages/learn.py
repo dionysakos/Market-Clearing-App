@@ -221,7 +221,7 @@ components.html(
       <div class="cluster">
         <div class="orb o1 active" data-key="lmp-smp">LMP vs SMP</div>
         <div class="orb o2" data-key="congestion">Congestion &amp;<br>Nodal Pricing</div>
-        <div class="orb o3" data-key="milp">MILP Solver Logic</div>
+        <div class="orb o3" data-key="lp">LP Solver Logic</div>
         <div class="orb o4" data-key="optimal">The Optimal Solution</div>
         <div class="orb o5" data-key="zonal">Zonal Pricing vs<br>Nodal LMPs</div>
         <div class="orb o6" data-key="redispatch">Redispatching Mechanics</div>
@@ -257,11 +257,11 @@ components.html(
           <p>Importing nodes typically see higher prices because local expensive units must be committed, while exporting nodes can see lower prices when low-cost generation cannot be transferred.</p>
         `
       },
-      "milp": {
-        title: " MILP Solver Logic",
+      "lp": {
+        title: "LP Solver Logic",
         html: `
-          <p><span class="highlight">MILP</span> (Mixed-Integer Linear Programming) is the engine for unit commitment with discrete on/off variables.</p>
-          <p><strong>Objective:</strong> minimize total cost (fuel + start-up) while satisfying binary and physical constraints such as minimum up/down times and ramp-rate limits.</p>
+          <p><span class="highlight">LP</span> (Linear Programming) is used for optimal power flow and economic dispatch problems.</p>
+          <p><strong>Objective:</strong> minimize total cost  while satisfying linear constraints such as power balance and generator limits.</p>
         `
       },
       "optimal": {
