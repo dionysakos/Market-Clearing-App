@@ -62,6 +62,9 @@ To execute the Clearit environment locally, ensure you have a Python 3.10+ envir
 * Clone the Repository:
 
 `git clone https://github.com/your-username/Market-Clearing-App.git`
+
+* Go to the App:
+
 `cd Market-Clearing-App`
 
 * Install Dependencies:
