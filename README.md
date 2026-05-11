@@ -8,7 +8,7 @@ Clearit is a  simulation environment designed for **Locational Marginal Pricing*
 
 The application is deployed as a cloud-native service and can be accessed via the following URL:
 
-`make my url`
+`https://clearit-market.streamlit.app`
 
 ## Technical Framework
 
@@ -61,7 +61,7 @@ To execute the Clearit environment locally, ensure you have a Python 3.10+ envir
 
 * Clone the Repository:
 
-`git clone https://github.com/your-username/Market-Clearing-App.git`
+`git clone https://github.com/dionysakos/Market-Clearing-App.git`
 
 * Go to the App:
 
