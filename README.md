@@ -14,7 +14,7 @@ The application is deployed as a cloud-native service and can be accessed via th
 
 * **Linearized Flow** Equations: Utilizes Power Transfer Distribution Factors (**PTDFs**) for flow sensitivity analysis.
 
-* Optimization Engine: Employs **LP** solver to determine the optimal dispatch points while satisfying some basic constraints.
+* Optimization Engine: Employs **LP** solver to determine the optimal dispatch points while satisfying some basic linear constraints.
 
 > The constraints include: Generation Capacity Limits (`P_max`,`P_min`), Network Thermal Limits (MW Flow constraints) & System Load Balance (Market Clearing)           
 
