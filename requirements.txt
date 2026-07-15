@@ -1,6 +1,4 @@
-pulp
-streamlit
-plotly
-pandas
-matplotlib
-networkx
+pulp>=2.7
+streamlit>=1.36
+plotly>=5.18
+pandas>=2.0
